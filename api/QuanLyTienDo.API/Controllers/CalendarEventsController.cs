@@ -28,10 +28,12 @@ public class CalendarEventsController : ControllerBase
         var query = _db.CalendarEvents.Where(e => e.UserId == userId);
 
         if (from.HasValue)
-            query = query.Where(e => e.EndAt >= from.Value);
+            // Include recurring events (they repeat, so don't filter by StartAt >= from)
+            query = query.Where(e => e.EndAt >= from.Value || e.Recurrence != "none");
 
         if (to.HasValue)
-            query = query.Where(e => e.StartAt <= to.Value);
+            // Non-recurring: StartAt must be within range. Recurring: always include (expand on frontend)
+            query = query.Where(e => e.StartAt <= to.Value || e.Recurrence != "none");
 
         var events = await query.OrderBy(e => e.StartAt).ToListAsync();
 
