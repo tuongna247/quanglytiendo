@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<BibleReadingLog> BibleReadingLogs => Set<BibleReadingLog>();
     public DbSet<UserBiblePlanConfig> UserBiblePlanConfigs => Set<UserBiblePlanConfig>();
     public DbSet<MemorizePassage> MemorizePassages => Set<MemorizePassage>();
+    public DbSet<FixedExpense> FixedExpenses => Set<FixedExpense>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -232,6 +233,20 @@ public class AppDbContext : DbContext
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
             e.HasOne(x => x.User)
              .WithMany(u => u.MemorizePassages)
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── FixedExpense ─────────────────────────────────────────────────────────
+        modelBuilder.Entity<FixedExpense>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            e.HasOne(x => x.User)
+             .WithMany(u => u.FixedExpenses)
              .HasForeignKey(x => x.UserId)
              .OnDelete(DeleteBehavior.Cascade);
         });
