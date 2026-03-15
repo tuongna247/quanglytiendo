@@ -681,10 +681,16 @@ function InlineBibleText({ passage, dateStr, completed, toggle }) {
   const [fontFamily, setFontFamily] = useState('inherit');
   const [fontSize, setFontSize] = useState(16);
   const hlKey = `qlTD_hl_${passage}`;
-  const [highlights, setHighlights] = useState(() => {
-    try { const raw = localStorage.getItem(hlKey); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
-  });
+  const [highlights, setHighlights] = useState({});
   const [activeColor, setActiveColor] = useState('#FFF176');
+
+  // Đọc highlights từ localStorage sau khi mount (tránh SSR mismatch)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(hlKey);
+      setHighlights(raw ? JSON.parse(raw) : {});
+    } catch { setHighlights({}); }
+  }, [hlKey]);
 
   const parsed = parsePassage(passage);
 

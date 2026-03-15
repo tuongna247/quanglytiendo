@@ -105,6 +105,13 @@ builder.Services.AddSwaggerGen(c =>
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// ── Auto-migrate on startup (production Docker) ───────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {

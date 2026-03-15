@@ -27,7 +27,7 @@ import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import Tooltip from '@mui/material/Tooltip';
-import { IconPlus, IconTrash, IconEdit, IconPlayerPlay } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconEdit, IconPlayerPlay, IconCheck, IconHistory } from '@tabler/icons-react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
@@ -78,6 +78,7 @@ const emptyTxForm = {
 
 const emptyFixedForm = {
   title: '',
+  type: 'expense',
   amount: '',
   category: '',
   dayOfMonth: 1,
@@ -113,7 +114,7 @@ function FixedExpensesTab({ setError, setSuccess }) {
 
   function openEdit(item) {
     setEditItem(item);
-    setForm({ title: item.title, amount: String(item.amount), category: item.category, dayOfMonth: item.dayOfMonth, isActive: item.isActive });
+    setForm({ title: item.title, type: item.type, amount: String(item.amount), category: item.category, dayOfMonth: item.dayOfMonth, isActive: item.isActive });
     setDialogOpen(true);
   }
 
@@ -153,23 +154,45 @@ function FixedExpensesTab({ setError, setSuccess }) {
     try {
       const now = new Date();
       await apiClient.post(`/api/fixed-expenses/${item.id}/apply`, { year: now.getFullYear(), month: now.getMonth() + 1 });
-      setSuccess(`Đã ghi "${item.title}" vào giao dịch tháng này`);
+      setSuccess(`Đã ghi "${item.title}" vào giao dịch tháng ${now.getMonth() + 1}/${now.getFullYear()}`);
+      await fetchItems();
     } catch (err) { setError(err.message); }
     finally { setApplying(null); }
   }
 
-  const totalActive = items.filter(x => x.isActive).reduce((s, x) => s + (x.amount || 0), 0);
+  const totalIncome = items.filter(x => x.isActive && x.type === 'income').reduce((s, x) => s + (x.amount || 0), 0);
+  const totalExpense = items.filter(x => x.isActive && x.type === 'expense').reduce((s, x) => s + (x.amount || 0), 0);
+  const totalBalance = totalIncome - totalExpense;
 
   return (
     <>
       {/* Summary */}
-      <Card sx={{ mb: 2, borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'warning.main' }}>
-        <CardContent>
-          <Typography variant="subtitle2" color="textSecondary">Tổng chi phí cố định / tháng</Typography>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: 'warning.dark' }}>{formatVND(totalActive)}</Typography>
-          <Typography variant="caption" color="textSecondary">{items.filter(x => x.isActive).length} khoản đang hoạt động</Typography>
-        </CardContent>
-      </Card>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="textSecondary">Thu cố định / tháng</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>+{formatVND(totalIncome)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'error.main' }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="textSecondary">Chi cố định / tháng</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>-{formatVND(totalExpense)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: totalBalance >= 0 ? 'primary.main' : 'warning.main' }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="textSecondary">Số dư cố định / tháng</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: totalBalance >= 0 ? 'primary.main' : 'warning.main' }}>{formatVND(totalBalance)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Table */}
       <Card sx={{ borderRadius: 2 }}>
@@ -184,10 +207,10 @@ function FixedExpensesTab({ setError, setSuccess }) {
               <TableRow>
                 <TableCell>Tên khoản</TableCell>
                 <TableCell>Danh mục</TableCell>
-                <TableCell align="center">Ngày trong tháng</TableCell>
+                <TableCell align="center">Ngày</TableCell>
                 <TableCell align="right">Số tiền</TableCell>
+                <TableCell align="center">Tháng này</TableCell>
                 <TableCell align="center">Kích hoạt</TableCell>
-                <TableCell align="center">Áp dụng tháng này</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableHead>
@@ -212,28 +235,33 @@ function FixedExpensesTab({ setError, setSuccess }) {
                     <Chip label={`Ngày ${item.dayOfMonth}`} size="small" color="default" />
                   </TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                      -{formatVND(item.amount)}
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: item.type === 'income' ? 'success.main' : 'error.main' }}>
+                      {item.type === 'income' ? '+' : '-'}{formatVND(item.amount)}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
-                    <Switch size="small" checked={item.isActive} onChange={() => handleToggleActive(item)} />
+                    {item.isAppliedThisMonth ? (
+                      <Tooltip title={`Đã ghi tháng ${new Date().getMonth() + 1} — Bấm để ghi thêm`}>
+                        <span>
+                          <Button size="small" variant="contained" color="success" startIcon={<IconCheck size={14} />}
+                            disabled={!item.isActive || applying === item.id} onClick={() => handleApply(item)}>
+                            {applying === item.id ? '...' : 'Đã ghi'}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title={`Ghi ${item.type === 'income' ? 'thu nhập' : 'chi phí'} vào tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}`}>
+                        <span>
+                          <Button size="small" variant="outlined" color="primary" startIcon={<IconPlayerPlay size={14} />}
+                            disabled={!item.isActive || applying === item.id} onClick={() => handleApply(item)}>
+                            {applying === item.id ? '...' : 'Ghi'}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    )}
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title={`Ghi vào giao dịch tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}`}>
-                      <span>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          startIcon={<IconPlayerPlay size={14} />}
-                          disabled={!item.isActive || applying === item.id}
-                          onClick={() => handleApply(item)}
-                        >
-                          {applying === item.id ? '...' : 'Ghi'}
-                        </Button>
-                      </span>
-                    </Tooltip>
+                    <Switch size="small" checked={item.isActive} onChange={() => handleToggleActive(item)} />
                   </TableCell>
                   <TableCell>
                     <IconButton size="small" onClick={() => openEdit(item)}><IconEdit size={16} /></IconButton>
@@ -251,9 +279,16 @@ function FixedExpensesTab({ setError, setSuccess }) {
         <DialogTitle>{editItem ? 'Sửa khoản cố định' : 'Thêm khoản cố định'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Loại *</InputLabel>
+              <Select value={form.type} label="Loại *" onChange={e => setForm(f => ({ ...f, type: e.target.value, category: '' }))}>
+                <MenuItem value="income">Thu nhập cố định</MenuItem>
+                <MenuItem value="expense">Chi phí cố định</MenuItem>
+              </Select>
+            </FormControl>
             <TextField
               label="Tên khoản *"
-              placeholder="VD: Tiền nhà, Học phí con, Điện nước..."
+              placeholder={form.type === 'income' ? 'VD: Lương, Tiền thuê nhà thu...' : 'VD: Tiền nhà, Học phí con, Điện nước...'}
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               fullWidth
@@ -272,14 +307,14 @@ function FixedExpensesTab({ setError, setSuccess }) {
             <FormControl fullWidth>
               <InputLabel>Danh mục *</InputLabel>
               <Select value={form.category} label="Danh mục *" onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                {EXPENSE_CATS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                {(form.type === 'income' ? INCOME_CATS : EXPENSE_CATS).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
               </Select>
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel>Ngày thanh toán trong tháng *</InputLabel>
+              <InputLabel>Ngày {form.type === 'income' ? 'nhận' : 'thanh toán'} trong tháng *</InputLabel>
               <Select
                 value={form.dayOfMonth}
-                label="Ngày thanh toán trong tháng *"
+                label={`Ngày ${form.type === 'income' ? 'nhận' : 'thanh toán'} trong tháng *`}
                 onChange={e => setForm(f => ({ ...f, dayOfMonth: e.target.value }))}
               >
                 {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (

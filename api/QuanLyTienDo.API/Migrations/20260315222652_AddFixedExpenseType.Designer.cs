@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using QuanLyTienDo.API.Data;
 
@@ -11,9 +12,11 @@ using QuanLyTienDo.API.Data;
 namespace QuanLyTienDo.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260315222652_AddFixedExpenseType")]
+    partial class AddFixedExpenseType
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -446,37 +449,6 @@ namespace QuanLyTienDo.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("FixedExpenses");
-                });
-
-            modelBuilder.Entity("QuanLyTienDo.API.Models.FixedExpenseApplication", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWID()");
-
-                    b.Property<DateTime>("AppliedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<Guid>("FixedExpenseId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Month")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("TransactionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Year")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FixedExpenseId");
-
-                    b.ToTable("FixedExpenseApplications");
                 });
 
             modelBuilder.Entity("QuanLyTienDo.API.Models.HealthGoal", b =>
@@ -947,17 +919,6 @@ namespace QuanLyTienDo.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("QuanLyTienDo.API.Models.FixedExpenseApplication", b =>
-                {
-                    b.HasOne("QuanLyTienDo.API.Models.FixedExpense", "FixedExpense")
-                        .WithMany("Applications")
-                        .HasForeignKey("FixedExpenseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("FixedExpense");
-                });
-
             modelBuilder.Entity("QuanLyTienDo.API.Models.HealthGoal", b =>
                 {
                     b.HasOne("QuanLyTienDo.API.Models.User", "User")
@@ -1038,11 +999,6 @@ namespace QuanLyTienDo.API.Migrations
             modelBuilder.Entity("QuanLyTienDo.API.Models.BibleReadingPlan", b =>
                 {
                     b.Navigation("Days");
-                });
-
-            modelBuilder.Entity("QuanLyTienDo.API.Models.FixedExpense", b =>
-                {
-                    b.Navigation("Applications");
                 });
 
             modelBuilder.Entity("QuanLyTienDo.API.Models.User", b =>

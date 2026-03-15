@@ -11,6 +11,9 @@ api/**/bin/
 api/**/obj/
 api/**/*.user
 
+# SSL certs (tự tạo trên server)
+nginx/certs/
+
 # Misc
 .DS_Store
 *.log

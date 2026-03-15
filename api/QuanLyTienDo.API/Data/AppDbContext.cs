@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<UserBiblePlanConfig> UserBiblePlanConfigs => Set<UserBiblePlanConfig>();
     public DbSet<MemorizePassage> MemorizePassages => Set<MemorizePassage>();
     public DbSet<FixedExpense> FixedExpenses => Set<FixedExpense>();
+    public DbSet<FixedExpenseApplication> FixedExpenseApplications => Set<FixedExpenseApplication>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -248,6 +249,18 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.User)
              .WithMany(u => u.FixedExpenses)
              .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── FixedExpenseApplication ──────────────────────────────────────────────
+        modelBuilder.Entity<FixedExpenseApplication>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.AppliedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasOne(x => x.FixedExpense)
+             .WithMany(f => f.Applications)
+             .HasForeignKey(x => x.FixedExpenseId)
              .OnDelete(DeleteBehavior.Cascade);
         });
     }

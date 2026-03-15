@@ -24,20 +24,25 @@ public class FixedExpensesController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var now = DateTime.UtcNow;
         var list = await _db.FixedExpenses
             .Where(x => x.UserId == userId)
+            .Include(x => x.Applications)
             .OrderBy(x => x.DayOfMonth)
             .ToListAsync();
-        return Ok(list.Select(MapToDto));
+        return Ok(list.Select(fe => MapToDto(fe, now.Year, now.Month)));
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var fe = await _db.FixedExpenses.FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+        var now = DateTime.UtcNow;
+        var fe = await _db.FixedExpenses
+            .Include(x => x.Applications)
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
         if (fe is null) return NotFound();
-        return Ok(MapToDto(fe));
+        return Ok(MapToDto(fe, now.Year, now.Month));
     }
 
     [HttpPost]
@@ -50,6 +55,7 @@ public class FixedExpensesController : ControllerBase
             Id = Guid.NewGuid(),
             UserId = userId,
             Title = request.Title,
+            Type = request.Type,
             Amount = request.Amount,
             Category = request.Category,
             DayOfMonth = request.DayOfMonth,
@@ -60,7 +66,8 @@ public class FixedExpensesController : ControllerBase
 
         _db.FixedExpenses.Add(fe);
         await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = fe.Id }, MapToDto(fe));
+        var now2 = DateTime.UtcNow;
+        return CreatedAtAction(nameof(GetById), new { id = fe.Id }, MapToDto(fe, now2.Year, now2.Month));
     }
 
     [HttpPut("{id}")]
@@ -71,6 +78,7 @@ public class FixedExpensesController : ControllerBase
         if (fe is null) return NotFound();
 
         if (request.Title is not null) fe.Title = request.Title;
+        if (request.Type is not null) fe.Type = request.Type;
         if (request.Amount.HasValue) fe.Amount = request.Amount.Value;
         if (request.Category is not null) fe.Category = request.Category;
         if (request.DayOfMonth.HasValue) fe.DayOfMonth = request.DayOfMonth.Value;
@@ -78,7 +86,8 @@ public class FixedExpensesController : ControllerBase
         fe.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return Ok(MapToDto(fe));
+        var now3 = DateTime.UtcNow;
+        return Ok(MapToDto(fe, now3.Year, now3.Month));
     }
 
     [HttpDelete("{id}")]
@@ -112,7 +121,7 @@ public class FixedExpensesController : ControllerBase
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            Type = "expense",
+            Type = fe.Type,
             Amount = fe.Amount,
             Category = fe.Category,
             Description = fe.Title,
@@ -123,20 +132,45 @@ public class FixedExpensesController : ControllerBase
         };
 
         _db.Transactions.Add(tx);
+
+        // Lưu lại archive record
+        var application = new FixedExpenseApplication
+        {
+            Id = Guid.NewGuid(),
+            FixedExpenseId = fe.Id,
+            Year = y,
+            Month = m,
+            TransactionId = tx.Id,
+            AppliedAt = DateTime.UtcNow
+        };
+        _db.FixedExpenseApplications.Add(application);
+
         await _db.SaveChangesAsync();
 
         return Ok(new { transactionId = tx.Id, date = dateStr, title = fe.Title, amount = fe.Amount });
     }
 
-    private static FixedExpenseDto MapToDto(FixedExpense fe) => new()
+    private static FixedExpenseDto MapToDto(FixedExpense fe, int currentYear, int currentMonth) => new()
     {
         Id = fe.Id,
         UserId = fe.UserId,
         Title = fe.Title,
+        Type = fe.Type,
         Amount = fe.Amount,
         Category = fe.Category,
         DayOfMonth = fe.DayOfMonth,
         IsActive = fe.IsActive,
+        IsAppliedThisMonth = fe.Applications.Any(a => a.Year == currentYear && a.Month == currentMonth),
+        Archives = fe.Applications
+            .OrderByDescending(a => a.AppliedAt)
+            .Select(a => new ApplicationHistoryDto
+            {
+                Id = a.Id,
+                Year = a.Year,
+                Month = a.Month,
+                TransactionId = a.TransactionId,
+                AppliedAt = a.AppliedAt
+            }).ToList(),
         CreatedAt = fe.CreatedAt,
         UpdatedAt = fe.UpdatedAt
     };

@@ -1,3 +1,5 @@
+const API_URL = process.env.API_URL || 'http://localhost:5015';
+
 const nextConfig = {
   reactStrictMode: false,
   images: { unoptimized: true },
@@ -6,7 +8,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5015/api/:path*',
+        destination: `${API_URL}/api/:path*`,
       },
     ];
   },
