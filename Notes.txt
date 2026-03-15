@@ -1,0 +1,7 @@
+taskkill 
+cmd /c "taskkill /PID 21632 /F"
+cmd /c "taskkill /IM QuanLyTienDo.API.exe /F 2>&1"
+cmd /c "netstat -ano | findstr :5015"
+run api
+cd api/QuanLyTienDo.API
+dotnet run

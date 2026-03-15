@@ -151,11 +151,14 @@ export default function TasksPage() {
 
   return (
     <PageContainer title="Công việc" description="Quản lý công việc">
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+      <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ flex: 1 }}>
           <Tab label="Danh sách" />
           <Tab label="Kanban" />
         </Tabs>
+        <Button variant="contained" startIcon={<IconPlus size={16} />} onClick={openAdd} sx={{ mr: 1 }}>
+          Thêm mới
+        </Button>
       </Box>
 
       {tab === 0 && (

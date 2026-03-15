@@ -79,6 +79,12 @@ const Menuitems = [
     icon: IconBook,
     href: '/apps/bible',
   },
+  {
+    id: uniqueId(),
+    title: 'Học Thuộc Lòng',
+    icon: IconBook,
+    href: '/apps/memorize',
+  },
 
   // ── Cài đặt ──────────────────────────────────────────────────────────────
   {

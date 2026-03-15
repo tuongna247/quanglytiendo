@@ -38,7 +38,8 @@ export default function JournalPage() {
       if (data) {
         setNote(data);
         setContent(data.content || '');
-        setTodos(Array.isArray(data.todos) ? data.todos : []);
+        const rawTodos = data.todoItems || data.todos;
+        setTodos(Array.isArray(rawTodos) ? rawTodos : (() => { try { return JSON.parse(rawTodos || '[]'); } catch { return []; } })());
       } else {
         setNote(null);
         setContent('');
@@ -56,7 +57,7 @@ export default function JournalPage() {
   async function saveNote(newContent, newTodos) {
     setSaving(true);
     try {
-      const payload = { date: toDateStr(selectedDate), content: newContent, todos: newTodos };
+      const payload = { date: toDateStr(selectedDate), content: newContent, todoItems: JSON.stringify(newTodos) };
       await apiClient.post('/api/journal', payload);
     } catch (err) { console.error(err); }
     finally { setSaving(false); }
