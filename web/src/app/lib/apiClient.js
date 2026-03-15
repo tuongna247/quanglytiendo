@@ -1,6 +1,8 @@
 'use client';
 
-const API_BASE = 'http://localhost:5015';
+// Empty string = relative URL → Next.js rewrites proxy to API container
+// (works both in dev via next.config.mjs rewrite and in production via Docker)
+const API_BASE = '';
 
 function getToken() {
   if (typeof window === 'undefined') return null;

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script deploy lên Ubuntu server
+# Script deploy lên Ubuntu server (multi-project, nginx sẵn có)
 # Chạy: chmod +x deploy.sh && ./deploy.sh
 
 set -e
@@ -8,28 +8,38 @@ echo "=== Quản Lý Tiến Độ — Deploy ==="
 
 # 1. Kiểm tra .env
 if [ ! -f .env ]; then
-  echo "Chưa có file .env. Sao chép .env.example và điền thông tin:"
+  echo "Chưa có file .env. Sao chép từ .env.example:"
   cp .env.example .env
-  echo "  → Mở file .env và đổi các giá trị, sau đó chạy lại deploy.sh"
+  echo "  → Mở file .env, điền đúng giá trị, rồi chạy lại deploy.sh"
   exit 1
 fi
 
-# 2. Chạy migration trước khi start (API chạy migration tự động khi startup)
+# 2. Build & start containers
 echo "[1/3] Build & start containers..."
-docker compose pull db 2>/dev/null || true
 docker compose up -d --build
 
 # 3. Đợi DB healthy
 echo "[2/3] Đợi SQL Server sẵn sàng..."
-sleep 15
+for i in $(seq 1 30); do
+  if docker compose exec -T db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa \
+      -P "$(grep DB_SA_PASSWORD .env | cut -d= -f2)" -C -Q "SELECT 1" &>/dev/null; then
+    echo "  SQL Server sẵn sàng!"
+    break
+  fi
+  echo "  Đợi... ($i/30)"
+  sleep 3
+done
 
-# 4. Chạy EF migration bên trong container API
-echo "[3/3] Chạy database migration..."
-docker compose exec api dotnet QuanLyTienDo.API.dll --migrate 2>/dev/null || true
+# 4. Migration tự động trong API startup (Program.cs đã có db.Database.Migrate())
+echo "[3/3] Kiểm tra migration..."
+sleep 5
+docker compose logs api --tail=20
 
 echo ""
 echo "=== Deploy xong! ==="
-echo "Web: http://$(hostname -I | awk '{print $1}')"
-echo "API: http://$(hostname -I | awk '{print $1}'):5015"
+WEB_PORT=$(grep WEB_PORT .env | cut -d= -f2)
+WEB_PORT=${WEB_PORT:-3010}
+echo "Web chạy tại: http://localhost:${WEB_PORT}"
 echo ""
+echo "Thêm vào nginx của server (xem nginx/app.conf.example)"
 echo "Logs: docker compose logs -f"

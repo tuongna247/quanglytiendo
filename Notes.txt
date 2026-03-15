@@ -5,3 +5,7 @@ cmd /c "netstat -ano | findstr :5015"
 run api
 cd api/QuanLyTienDo.API
 dotnet run
+
+
+  918  eval $(ssh-agent)
+  919  ssh-add ~/.ssh/id_ed25519
