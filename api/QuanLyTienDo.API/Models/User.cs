@@ -21,4 +21,7 @@ public class User
     public ICollection<DailyNote> DailyNotes { get; set; } = new List<DailyNote>();
     public ICollection<DailyDevotion> DailyDevotions { get; set; } = new List<DailyDevotion>();
     public ICollection<BibleReadingPlan> BibleReadingPlans { get; set; } = new List<BibleReadingPlan>();
+    public ICollection<BibleReadingLog> BibleReadingLogs { get; set; } = new List<BibleReadingLog>();
+    public UserBiblePlanConfig? BiblePlanConfig { get; set; }
+    public ICollection<MemorizePassage> MemorizePassages { get; set; } = new List<MemorizePassage>();
 }

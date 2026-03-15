@@ -20,6 +20,9 @@ public class AppDbContext : DbContext
     public DbSet<DailyDevotion> DailyDevotions => Set<DailyDevotion>();
     public DbSet<BibleReadingPlan> BibleReadingPlans => Set<BibleReadingPlan>();
     public DbSet<BibleReadingDay> BibleReadingDays => Set<BibleReadingDay>();
+    public DbSet<BibleReadingLog> BibleReadingLogs => Set<BibleReadingLog>();
+    public DbSet<UserBiblePlanConfig> UserBiblePlanConfigs => Set<UserBiblePlanConfig>();
+    public DbSet<MemorizePassage> MemorizePassages => Set<MemorizePassage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -190,6 +193,46 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Plan)
              .WithMany(p => p.Days)
              .HasForeignKey(x => x.PlanId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── BibleReadingLog ──────────────────────────────────────────────────────
+        modelBuilder.Entity<BibleReadingLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasIndex(x => new { x.UserId, x.Date }).IsUnique();
+            e.HasOne(x => x.User)
+             .WithMany(u => u.BibleReadingLogs)
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── UserBiblePlanConfig ──────────────────────────────────────────────────
+        modelBuilder.Entity<UserBiblePlanConfig>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.GeneratedPlanJson).HasColumnType("nvarchar(max)");
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasOne(x => x.User)
+             .WithOne(u => u.BiblePlanConfig)
+             .HasForeignKey<UserBiblePlanConfig>(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── MemorizePassage ──────────────────────────────────────────────────────
+        modelBuilder.Entity<MemorizePassage>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.AddedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasOne(x => x.User)
+             .WithMany(u => u.MemorizePassages)
+             .HasForeignKey(x => x.UserId)
              .OnDelete(DeleteBehavior.Cascade);
         });
     }
