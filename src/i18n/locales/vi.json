@@ -1,0 +1,120 @@
+{
+  "app": { "name": "Quản Lý Tiến Độ" },
+  "nav": {
+    "dashboard": "Tổng quan",
+    "calendar": "Lịch",
+    "tasks": "Công việc",
+    "finance": "Tài chính",
+    "planner": "Kế hoạch ngày",
+    "health": "Sức khỏe",
+    "journal": "Nhật ký",
+    "devotion": "Tĩnh nguyện",
+    "settings": "Cài đặt"
+  },
+  "auth": {
+    "login": "Đăng nhập",
+    "register": "Đăng ký",
+    "logout": "Đăng xuất",
+    "username": "Tên đăng nhập",
+    "displayName": "Tên hiển thị",
+    "password": "Mật khẩu",
+    "confirmPassword": "Xác nhận mật khẩu",
+    "noAccount": "Chưa có tài khoản?",
+    "hasAccount": "Đã có tài khoản?",
+    "invalidCredentials": "Tên đăng nhập hoặc mật khẩu không đúng",
+    "loginError": "Tên đăng nhập hoặc mật khẩu không đúng",
+    "usernameExists": "Tên đăng nhập đã tồn tại"
+  },
+  "common": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "add": "Thêm",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "all": "Tất cả",
+    "today": "Hôm nay",
+    "loading": "Đang tải...",
+    "noData": "Chưa có dữ liệu",
+    "title": "Tiêu đề",
+    "description": "Mô tả",
+    "date": "Ngày",
+    "notes": "Ghi chú",
+    "category": "Danh mục",
+    "priority": "Ưu tiên",
+    "status": "Trạng thái",
+    "actions": "Thao tác"
+  },
+  "priority": {
+    "low": "Thấp",
+    "medium": "Trung bình",
+    "high": "Cao",
+    "urgent": "Khẩn cấp"
+  },
+  "status": {
+    "todo": "Chưa làm",
+    "in_progress": "Đang làm",
+    "done": "Hoàn thành",
+    "cancelled": "Đã hủy"
+  },
+  "finance": {
+    "title": "Tài chính",
+    "income": "Thu nhập",
+    "expense": "Chi tiêu",
+    "balance": "Số dư",
+    "addTransaction": "Thêm giao dịch",
+    "amount": "Số tiền",
+    "paymentMethod": "Phương thức thanh toán",
+    "period": {
+      "day": "Hôm nay",
+      "week": "Tuần này",
+      "month": "Tháng này",
+      "year": "Năm nay"
+    }
+  },
+  "tasks": {
+    "title": "Công việc",
+    "addTask": "Thêm công việc",
+    "steps": "Các bước thực hiện",
+    "addStep": "Thêm bước",
+    "dueDate": "Hạn hoàn thành",
+    "estimatedTime": "Thời gian ước tính (phút)",
+    "tags": "Nhãn",
+    "noTasks": "Chưa có công việc nào",
+    "list": "Danh sách",
+    "kanban": "Kanban"
+  },
+  "health": {
+    "title": "Sức khỏe",
+    "weight": "Cân nặng (kg)",
+    "goal": "Mục tiêu",
+    "bmi": "BMI",
+    "exercise": "Tập luyện",
+    "checkIn": "Lắng nghe cơ thể",
+    "energy": "Năng lượng",
+    "mood": "Tâm trạng",
+    "sleep": "Giấc ngủ",
+    "stress": "Căng thẳng",
+    "suggestions": "Gợi ý"
+  },
+  "devotion": {
+    "title": "Tĩnh nguyện",
+    "passage": "Đoạn Kinh Thánh",
+    "bibleTeaches": "Kinh Thánh dạy gì?",
+    "lessonLearned": "Tôi học được gì?",
+    "application": "Áp dụng thế nào?",
+    "prayer": "Cầu nguyện",
+    "memorize": "Thuộc lòng",
+    "streak": "Chuỗi ngày liên tiếp",
+    "readingPlan": "Kế hoạch đọc Kinh Thánh"
+  },
+  "journal": {
+    "title": "Nhật ký",
+    "writeSomething": "Viết gì đó về hôm nay...",
+    "addTodo": "Thêm việc cần làm",
+    "todos": "Danh sách việc"
+  }
+}

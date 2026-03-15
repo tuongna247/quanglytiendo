@@ -1,0 +1,120 @@
+{
+  "app": { "name": "Progress Manager" },
+  "nav": {
+    "dashboard": "Dashboard",
+    "calendar": "Calendar",
+    "tasks": "Tasks",
+    "finance": "Finance",
+    "planner": "Daily Planner",
+    "health": "Health",
+    "journal": "Journal",
+    "devotion": "Devotion",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "username": "Username",
+    "displayName": "Display Name",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "invalidCredentials": "Invalid username or password",
+    "loginError": "Invalid username or password",
+    "usernameExists": "Username already exists"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "search": "Search",
+    "filter": "Filter",
+    "all": "All",
+    "today": "Today",
+    "loading": "Loading...",
+    "noData": "No data yet",
+    "title": "Title",
+    "description": "Description",
+    "date": "Date",
+    "notes": "Notes",
+    "category": "Category",
+    "priority": "Priority",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "status": {
+    "todo": "To Do",
+    "in_progress": "In Progress",
+    "done": "Done",
+    "cancelled": "Cancelled"
+  },
+  "finance": {
+    "title": "Finance",
+    "income": "Income",
+    "expense": "Expense",
+    "balance": "Balance",
+    "addTransaction": "Add Transaction",
+    "amount": "Amount",
+    "paymentMethod": "Payment Method",
+    "period": {
+      "day": "Today",
+      "week": "This Week",
+      "month": "This Month",
+      "year": "This Year"
+    }
+  },
+  "tasks": {
+    "title": "Tasks",
+    "addTask": "Add Task",
+    "steps": "Steps",
+    "addStep": "Add Step",
+    "dueDate": "Due Date",
+    "estimatedTime": "Estimated Time (min)",
+    "tags": "Tags",
+    "noTasks": "No tasks yet",
+    "list": "List",
+    "kanban": "Kanban"
+  },
+  "health": {
+    "title": "Health",
+    "weight": "Weight (kg)",
+    "goal": "Goal",
+    "bmi": "BMI",
+    "exercise": "Exercise",
+    "checkIn": "Body Check-In",
+    "energy": "Energy",
+    "mood": "Mood",
+    "sleep": "Sleep",
+    "stress": "Stress",
+    "suggestions": "Suggestions"
+  },
+  "devotion": {
+    "title": "Devotion",
+    "passage": "Bible Passage",
+    "bibleTeaches": "What does the Bible teach?",
+    "lessonLearned": "What did I learn?",
+    "application": "How to apply?",
+    "prayer": "Prayer",
+    "memorize": "Memorize",
+    "streak": "Day Streak",
+    "readingPlan": "Bible Reading Plan"
+  },
+  "journal": {
+    "title": "Journal",
+    "writeSomething": "Write something about today...",
+    "addTodo": "Add todo",
+    "todos": "Todo list"
+  }
+}

@@ -1,0 +1,17 @@
+# Node
+node_modules/
+.next/
+dist/
+.env
+.env.local
+.env*.local
+
+# .NET
+api/**/bin/
+api/**/obj/
+api/**/*.user
+
+# Misc
+.DS_Store
+*.log
+Thumbs.db

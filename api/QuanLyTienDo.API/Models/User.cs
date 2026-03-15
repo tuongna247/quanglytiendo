@@ -1,0 +1,24 @@
+namespace QuanLyTienDo.API.Models;
+
+public class User
+{
+    public Guid Id { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string AvatarColor { get; set; } = "#2196f3";
+    public DateTime CreatedAt { get; set; }
+
+    // Navigation
+    public ICollection<CalendarEvent> CalendarEvents { get; set; } = new List<CalendarEvent>();
+    public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
+    public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public ICollection<PlannerItem> PlannerItems { get; set; } = new List<PlannerItem>();
+    public ICollection<WeightLog> WeightLogs { get; set; } = new List<WeightLog>();
+    public ICollection<ExerciseSession> ExerciseSessions { get; set; } = new List<ExerciseSession>();
+    public ICollection<HealthGoal> HealthGoals { get; set; } = new List<HealthGoal>();
+    public ICollection<BodyCheckIn> BodyCheckIns { get; set; } = new List<BodyCheckIn>();
+    public ICollection<DailyNote> DailyNotes { get; set; } = new List<DailyNote>();
+    public ICollection<DailyDevotion> DailyDevotions { get; set; } = new List<DailyDevotion>();
+    public ICollection<BibleReadingPlan> BibleReadingPlans { get; set; } = new List<BibleReadingPlan>();
+}
