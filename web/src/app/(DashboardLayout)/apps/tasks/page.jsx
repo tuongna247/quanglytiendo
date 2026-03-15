@@ -26,6 +26,8 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import Fab from '@mui/material/Fab';
 import { IconPlus, IconEdit, IconTrash, IconX } from '@tabler/icons-react';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -80,13 +82,15 @@ export default function TasksPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [stepInput, setStepInput] = useState('');
+  const [error, setError] = useState('');
 
   async function fetchTasks() {
     setLoading(true);
     try {
       const data = await apiClient.get('/api/tasks');
-      setTasks(Array.isArray(data) ? data : []);
-    } catch { setTasks([]); }
+      const list = Array.isArray(data) ? data : [];
+      setTasks(list.map(t => ({ ...t, steps: typeof t.steps === 'string' ? JSON.parse(t.steps || '[]') : (t.steps || []) })));
+    } catch (e) { setTasks([]); setError(e.message); }
     finally { setLoading(false); }
   }
 
@@ -118,11 +122,12 @@ export default function TasksPage() {
     if (!form.title.trim()) return;
     setSaving(true);
     try {
-      if (editTask) await apiClient.put(`/api/tasks/${editTask.id}`, form);
-      else await apiClient.post('/api/tasks', form);
+      const payload = { ...form, steps: JSON.stringify(form.steps) };
+      if (editTask) await apiClient.put(`/api/tasks/${editTask.id}`, payload);
+      else await apiClient.post('/api/tasks', payload);
       await fetchTasks();
       closeDialog();
-    } catch (err) { console.error(err); }
+    } catch (err) { setError(err.message || 'Lỗi khi lưu'); }
     finally { setSaving(false); }
   }
 
@@ -131,7 +136,7 @@ export default function TasksPage() {
     try {
       await apiClient.delete(`/api/tasks/${id}`);
       await fetchTasks();
-    } catch (err) { console.error(err); }
+    } catch (err) { setError(err.message || 'Lỗi khi xóa'); }
   }
 
   function addStep() {
@@ -292,6 +297,9 @@ export default function TasksPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+      </Snackbar>
     </PageContainer>
   );
 }

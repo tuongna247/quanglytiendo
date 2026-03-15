@@ -27,6 +27,8 @@ import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -77,6 +79,7 @@ export default function FinancePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   async function fetchTransactions() {
     setLoading(true);
@@ -84,7 +87,7 @@ export default function FinancePage() {
     try {
       const data = await apiClient.get('/api/transactions', { from, to });
       setTransactions(Array.isArray(data) ? data : []);
-    } catch { setTransactions([]); }
+    } catch (e) { setTransactions([]); setError(e.message); }
     finally { setLoading(false); }
   }
 
@@ -112,7 +115,7 @@ export default function FinancePage() {
       await fetchTransactions();
       setDialogOpen(false);
       setForm(emptyForm);
-    } catch (err) { console.error(err); }
+    } catch (err) { setError(err.message || 'Lỗi khi lưu giao dịch'); }
     finally { setSaving(false); }
   }
 
@@ -121,7 +124,7 @@ export default function FinancePage() {
     try {
       await apiClient.delete(`/api/transactions/${id}`);
       await fetchTransactions();
-    } catch (err) { console.error(err); }
+    } catch (err) { setError(err.message || 'Lỗi khi xóa'); }
   }
 
   return (
@@ -264,6 +267,10 @@ export default function FinancePage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+      </Snackbar>
     </PageContainer>
   );
 }

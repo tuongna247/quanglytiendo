@@ -9,6 +9,7 @@ import {
   IconHeartbeat,
   IconNotebook,
   IconBook,
+  IconBible,
   IconSettings,
 } from '@tabler/icons-react';
 
@@ -71,6 +72,12 @@ const Menuitems = [
     title: 'Tĩnh nguyện',
     icon: IconBook,
     href: '/apps/devotion',
+  },
+  {
+    id: uniqueId(),
+    title: 'Đọc Kinh Thánh',
+    icon: IconBook,
+    href: '/apps/bible',
   },
 
   // ── Cài đặt ──────────────────────────────────────────────────────────────
