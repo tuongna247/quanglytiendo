@@ -206,20 +206,36 @@ async function loadBible() {
   return bibleCache;
 }
 
-// Shared hook: persist per-day completion in localStorage
+// Shared hook: persist per-day completion in DB
 function useBibleCompleted() {
   const [completed, setCompleted] = useState({});
   useEffect(() => {
-    const raw = localStorage.getItem('qlTD_bible_done');
-    if (raw) { try { setCompleted(JSON.parse(raw)); } catch {} }
+    apiClient.get('/api/bible-reading-log')
+      .then(data => {
+        if (Array.isArray(data)) {
+          const map = {};
+          data.forEach(d => { map[d] = true; });
+          setCompleted(map);
+        }
+      })
+      .catch(() => {});
   }, []);
-  function toggle(dateStr) {
+  async function toggle(dateStr) {
+    const wasCompleted = !!completed[dateStr];
     setCompleted(prev => {
       const next = { ...prev };
       if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
-      localStorage.setItem('qlTD_bible_done', JSON.stringify(next));
       return next;
     });
+    try {
+      await apiClient.post('/api/bible-reading-log', { date: dateStr, completed: !wasCompleted });
+    } catch {
+      setCompleted(prev => {
+        const next = { ...prev };
+        if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
+        return next;
+      });
+    }
   }
   return { completed, toggle };
 }

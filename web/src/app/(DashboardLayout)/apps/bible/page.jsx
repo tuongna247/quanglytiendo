@@ -18,6 +18,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Tooltip from '@mui/material/Tooltip';
 import Grid from '@mui/material/Grid';
+import Checkbox from '@mui/material/Checkbox';
 import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle } from '@tabler/icons-react';
 
 import PageContainer from '@/app/components/container/PageContainer';
@@ -222,7 +223,7 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
 }
 
 // ── Tab 1: Bible Reader ───────────────────────────────────────────────────────
-function ReaderTab({ initBook, initFrom, initTo, onNavigate }) {
+function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling, onToggleCompleted }) {
   const [bible, setBible] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState(initBook);
@@ -234,22 +235,10 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate }) {
   const [fontSize, setFontSize] = useState(16);
   const [activeColor, setActiveColor] = useState('#FFF176');
   const [highlights, setHighlights] = useState({});
-  const [completed, setCompleted] = useState({});
-  const [toggling, setToggling] = useState(false);
   const hlKey = `qlTD_hl_${selectedBook}_${chapterFrom}`;
 
   useEffect(() => {
     loadBible().then(data => { setBible(data); setLoading(false); });
-    // Load completed dates from backend
-    apiClient.get('/api/bible-reading-log')
-      .then(data => {
-        if (Array.isArray(data)) {
-          const map = {};
-          data.forEach(d => { map[d] = true; });
-          setCompleted(map);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -262,24 +251,6 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate }) {
   useEffect(() => {
     onNavigate(selectedBook, chapterFrom, chapterTo);
   }, [selectedBook, chapterFrom, chapterTo]);
-
-  async function toggleCompleted(dateStr) {
-    setToggling(true);
-    setCompleted(prev => {
-      const next = { ...prev };
-      if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
-      return next;
-    });
-    try {
-      await apiClient.post('/api/bible-reading-log', { date: dateStr });
-    } catch {
-      setCompleted(prev => {
-        const next = { ...prev };
-        if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
-        return next;
-      });
-    } finally { setToggling(false); }
-  }
 
   const bookChapters = bible ? (bible[selectedBook] || []) : [];
   const totalChapters = bookChapters.length;
@@ -367,7 +338,24 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate }) {
             fontSize={fontSize} onFontSize={setFontSize}
           />
           {loading ? <CircularProgress /> : (
-            <BibleTextContent chapters={displayChapters} chapterOffset={chapterFrom} paragraphMode={paragraphMode} highlights={highlights} activeColor={activeColor} onHighlight={applyHighlight} fontFamily={fontFamily} fontSize={fontSize} highlightedRange={highlightedRange} />
+            <>
+              <BibleTextContent chapters={displayChapters} chapterOffset={chapterFrom} paragraphMode={paragraphMode} highlights={highlights} activeColor={activeColor} onHighlight={applyHighlight} fontFamily={fontFamily} fontSize={fontSize} highlightedRange={highlightedRange} />
+              {planDateForCurrent && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                  <Button
+                    variant={isCurrentDone ? 'contained' : 'outlined'}
+                    color={isCurrentDone ? 'success' : 'primary'}
+                    size="large"
+                    startIcon={isCurrentDone ? <IconCircleCheck size={20} /> : <IconCircle size={20} />}
+                    disabled={toggling}
+                    onClick={() => onToggleCompleted(planDateForCurrent)}
+                    sx={{ minWidth: 200, borderRadius: 3 }}
+                  >
+                    {toggling ? '...' : isCurrentDone ? 'Đã đọc xong ✓' : 'Đánh dấu đã đọc'}
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
         </Box>
       </Box>
@@ -468,7 +456,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate }) {
                     size="large"
                     startIcon={isCurrentDone ? <IconCircleCheck size={20} /> : <IconCircle size={20} />}
                     disabled={toggling}
-                    onClick={() => toggleCompleted(planDateForCurrent)}
+                    onClick={() => onToggleCompleted(planDateForCurrent)}
                     sx={{ minWidth: 200, borderRadius: 3 }}
                   >
                     {toggling ? '...' : isCurrentDone ? 'Đã đọc xong ✓' : 'Đánh dấu đã đọc'}
@@ -489,23 +477,10 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate }) {
 }
 
 // ── Tab 2: Reading Plan ───────────────────────────────────────────────────────
-function ReadingPlanTab({ onReadBook }) {
+function ReadingPlanTab({ onReadBook, completed, onToggleCompleted, onCatchUp, catchingUp }) {
   const [weekIdx, setWeekIdx] = useState(getCurrentWeekIdx);
-  const [completed, setCompleted] = useState({});
 
   const todayStr = toLocalDateStr(new Date());
-
-  useEffect(() => {
-    apiClient.get('/api/bible-reading-log')
-      .then(data => {
-        if (Array.isArray(data)) {
-          const map = {};
-          data.forEach(d => { map[d] = true; });
-          setCompleted(map);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   function getDateForDay(weekStartDate, dayIdx) {
     const d = new Date(weekStartDate + 'T00:00:00');
@@ -518,6 +493,16 @@ function ReadingPlanTab({ onReadBook }) {
 
   const weekDates = DAY_KEYS.map((_, idx) => getDateForDay(week.startDate, idx));
   const weekDoneCount = weekDates.filter(d => completed[d]).length;
+
+  // Count uncompleted past days for catch-up button label
+  const catchUpCount = BIBLE_READING_PLAN.reduce((count, w) => {
+    return count + DAY_KEYS.filter((key, i) => {
+      const d = new Date(w.startDate + 'T00:00:00');
+      d.setDate(d.getDate() + i);
+      const dateStr = toLocalDateStr(d);
+      return dateStr < todayStr && !completed[dateStr] && w[key];
+    }).length;
+  }, 0);
 
   return (
     <Box>
@@ -535,8 +520,8 @@ function ReadingPlanTab({ onReadBook }) {
         <IconButton onClick={() => setWeekIdx(i => Math.min(BIBLE_READING_PLAN.length - 1, i + 1))} disabled={weekIdx === BIBLE_READING_PLAN.length - 1}><IconChevronRight /></IconButton>
       </Box>
 
-      {/* Week progress */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+      {/* Week progress + catch up */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
         <Button size="small" variant="outlined" onClick={() => setWeekIdx(getCurrentWeekIdx())}>Tuần hiện tại</Button>
         <Chip
           label={`${weekDoneCount}/7 ngày đã đọc`}
@@ -544,6 +529,18 @@ function ReadingPlanTab({ onReadBook }) {
           color={weekDoneCount === 7 ? 'success' : weekDoneCount > 0 ? 'warning' : 'default'}
           icon={weekDoneCount === 7 ? <IconCircleCheck size={14} /> : undefined}
         />
+        {catchUpCount > 0 && (
+          <Button
+            size="small"
+            variant="contained"
+            color="warning"
+            disabled={catchingUp}
+            onClick={onCatchUp}
+            startIcon={<IconCircleCheck size={14} />}
+          >
+            {catchingUp ? 'Đang cập nhật...' : `Catch up (${catchUpCount} ngày)`}
+          </Button>
+        )}
       </Box>
 
       {/* 7 day cards */}
@@ -554,7 +551,6 @@ function ReadingPlanTab({ onReadBook }) {
           const isToday = dateStr === todayStr;
           const isDone = !!completed[dateStr];
           const parsed = passage ? parsePassage(passage) : null;
-          const isToggling = toggling === dateStr;
 
           return (
             <Grid key={key} size={{ xs: 12, sm: 6, md: 4 }}>
@@ -569,18 +565,25 @@ function ReadingPlanTab({ onReadBook }) {
                 }}
               >
                 <CardContent sx={{ pb: '12px !important' }}>
-                  {/* Header */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: isDone ? 'success.main' : isToday ? 'primary.main' : 'text.secondary' }}>
                       {DAY_LABELS[key]}
                       {isToday && !isDone && <Chip label="Hôm nay" size="small" color="primary" sx={{ ml: 0.5, height: 16, fontSize: 10 }} />}
                     </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      {new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography variant="caption" color="textSecondary">
+                        {new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      </Typography>
+                      <Checkbox
+                        checked={isDone}
+                        onChange={() => onToggleCompleted(dateStr)}
+                        color="success"
+                        size="small"
+                        sx={{ p: 0 }}
+                      />
+                    </Box>
                   </Box>
 
-                  {/* Passage */}
                   <Typography
                     variant="body2"
                     sx={{
@@ -593,31 +596,17 @@ function ReadingPlanTab({ onReadBook }) {
                     {passage || '-'}
                   </Typography>
 
-                  {/* Actions */}
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    {parsed && (
-                      <Button
-                        size="small"
-                        variant={isDone ? 'text' : 'outlined'}
-                        sx={{ flex: 1 }}
-                        startIcon={<IconBook size={14} />}
-                        onClick={() => onReadBook(parsed.bookId, parsed.chFrom, parsed.chTo)}
-                      >
-                        Đọc
-                      </Button>
-                    )}
+                  {parsed && (
                     <Button
                       size="small"
-                      variant={isDone ? 'contained' : 'outlined'}
-                      color={isDone ? 'success' : 'inherit'}
-                      disabled={isToggling}
-                      startIcon={isDone ? <IconCircleCheck size={14} /> : <IconCircle size={14} />}
-                      onClick={() => toggleDay(dateStr)}
-                      sx={{ flex: 1, fontSize: 12 }}
+                      variant="outlined"
+                      fullWidth
+                      startIcon={<IconBook size={14} />}
+                      onClick={() => onReadBook(parsed.bookId, parsed.chFrom, parsed.chTo)}
                     >
-                      {isToggling ? '...' : isDone ? 'Đã đọc' : 'Chưa đọc'}
+                      {isDone ? 'Đọc lại' : 'Đọc ngay'}
                     </Button>
-                  </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -677,6 +666,86 @@ function BibleReader() {
   const [readerFrom, setReaderFrom] = useState(initFrom);
   const [readerTo, setReaderTo] = useState(initTo);
 
+  // ── Shared completed state (DB via /api/bible-reading-log) ───────────────
+  const [completed, setCompleted] = useState({});
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    apiClient.get('/api/bible-reading-log')
+      .then(data => {
+        if (Array.isArray(data)) {
+          const map = {};
+          data.forEach(d => { map[d] = true; });
+          setCompleted(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleCompleted(dateStr) {
+    const wasCompleted = !!completed[dateStr];
+    setToggling(true);
+    setCompleted(prev => {
+      const next = { ...prev };
+      if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
+      return next;
+    });
+    try {
+      await apiClient.post('/api/bible-reading-log', { date: dateStr, completed: !wasCompleted });
+      if (!wasCompleted) setTab(1);
+    } catch {
+      setCompleted(prev => {
+        const next = { ...prev };
+        if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
+        return next;
+      });
+    } finally {
+      setToggling(false);
+    }
+  }
+  // ── Catch Up: mark all past days as done ──────────────────────────────────
+  const [catchingUp, setCatchingUp] = useState(false);
+
+  async function catchUp() {
+    const todayStr = toLocalDateStr(new Date());
+    const missing = [];
+    for (const week of BIBLE_READING_PLAN) {
+      for (let i = 0; i < DAY_KEYS.length; i++) {
+        const d = new Date(week.startDate + 'T00:00:00');
+        d.setDate(d.getDate() + i);
+        const dateStr = toLocalDateStr(d);
+        if (dateStr < todayStr && !completed[dateStr] && week[DAY_KEYS[i]]) {
+          missing.push(dateStr);
+        }
+      }
+    }
+    if (missing.length === 0) return;
+    setCatchingUp(true);
+    // Optimistic bulk update
+    setCompleted(prev => {
+      const next = { ...prev };
+      missing.forEach(d => { next[d] = true; });
+      return next;
+    });
+    try {
+      await Promise.all(missing.map(d =>
+        apiClient.post('/api/bible-reading-log', { date: d, completed: true })
+      ));
+    } catch {
+      // Revert by reloading from DB
+      apiClient.get('/api/bible-reading-log').then(data => {
+        if (Array.isArray(data)) {
+          const map = {};
+          data.forEach(d => { map[d] = true; });
+          setCompleted(map);
+        }
+      }).catch(() => {});
+    } finally {
+      setCatchingUp(false);
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   function handleNavigate(bookId, from, to) {
     setReaderBook(bookId); setReaderFrom(from); setReaderTo(to);
     const params = new URLSearchParams({ book: bookId, from, to });
@@ -705,9 +774,12 @@ function BibleReader() {
           initFrom={readerFrom}
           initTo={readerTo}
           onNavigate={handleNavigate}
+          completed={completed}
+          toggling={toggling}
+          onToggleCompleted={toggleCompleted}
         />
       )}
-      {tab === 1 && <ReadingPlanTab onReadBook={goReadBook} />}
+      {tab === 1 && <ReadingPlanTab onReadBook={goReadBook} completed={completed} onToggleCompleted={toggleCompleted} onCatchUp={catchUp} catchingUp={catchingUp} />}
       {tab === 2 && <AllBooksTab onSelectBook={id => goReadBook(id, 1, 1)} />}
     </Box>
   );
