@@ -64,7 +64,13 @@
     "slick-carousel": "^1.8.1",
     "stylis-plugin-rtl": "^2.1.1",
     "swr": "^2.3.0",
-    "yup": "^0.32.11"
+    "yup": "^0.32.11",
+    "dexie": "^4.0.8",
+    "dexie-react-hooks": "^1.1.7",
+    "mammoth": "^1.8.0",
+    "pdfjs-dist": "^4.9.155",
+    "nanoid": "^5.0.9",
+    "lucide-react": "^0.468.0"
   },
   "devDependencies": {
     "eslint": "latest",

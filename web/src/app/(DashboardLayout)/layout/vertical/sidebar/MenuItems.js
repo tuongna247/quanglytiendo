@@ -9,6 +9,7 @@ import {
   IconHeartbeat,
   IconNotebook,
   IconBook,
+  IconBook2,
   IconBible,
   IconSettings,
 } from '@tabler/icons-react';
@@ -84,6 +85,12 @@ const Menuitems = [
     title: 'Học Thuộc Lòng',
     icon: IconBook,
     href: '/apps/memorize',
+  },
+  {
+    id: uniqueId(),
+    title: 'Đọc Sách',
+    icon: IconBook2,
+    href: '/apps/ebook',
   },
 
   // ── Cài đặt ──────────────────────────────────────────────────────────────
