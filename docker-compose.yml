@@ -36,6 +36,9 @@ services:
       Jwt__ExpiryDays: "7"
       Cors__AllowedOrigins__0: "${WEB_ORIGIN}"
       ASPNETCORE_ENVIRONMENT: "Production"
+      SendGrid__ApiKey: "${SENDGRID_API_KEY:-}"
+      SendGrid__FromEmail: "${SENDGRID_FROM_EMAIL:-noreply@example.com}"
+      App__Url: "${APP_URL:-http://localhost:3010}"
     # Chỉ expose nội bộ qua web container — không cần port ra ngoài
     expose:
       - "5015"
