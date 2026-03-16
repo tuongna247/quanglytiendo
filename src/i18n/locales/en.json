@@ -9,6 +9,7 @@
     "health": "Health",
     "journal": "Journal",
     "devotion": "Devotion",
+    "ebook": "Read Books",
     "settings": "Settings"
   },
   "auth": {

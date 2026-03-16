@@ -12,6 +12,7 @@ import HealthPage from '@/pages/HealthPage'
 import JournalPage from '@/pages/JournalPage'
 import DevotionPage from '@/pages/DevotionPage'
 import SettingsPage from '@/pages/SettingsPage'
+import EbookPage from '@/pages/EbookPage'
 
 function LoginRoute() {
   const session = useAuthStore(s => s.session)
@@ -35,6 +36,7 @@ export default function AppRouter() {
             <Route path="journal" element={<JournalPage />} />
             <Route path="devotion" element={<DevotionPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="ebook" element={<EbookPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
