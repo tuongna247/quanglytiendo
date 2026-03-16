@@ -13,4 +13,5 @@ export interface Session {
   displayName: string
   avatarColor?: string
   expiresAt: string
+  token: string
 }

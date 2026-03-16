@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { userRepository } from '@/db/userRepository'
 import { useAuthStore } from '@/store/useAuthStore'
+import { api } from '@/lib/apiClient'
+import type { Session } from '@/types/auth.types'
 
 const schema = z.object({
   username: z.string().min(1, 'Bắt buộc'),
@@ -17,9 +17,18 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-interface Props { onSwitch: () => void }
+interface Props { onSwitch: () => void; onForgot: () => void }
 
-export default function LoginPage({ onSwitch }: Props) {
+interface AuthResponse {
+  token: string
+  userId: string
+  username: string
+  displayName: string
+  avatarColor: string
+  expiresAt: string
+}
+
+export default function LoginPage({ onSwitch, onForgot }: Props) {
   const { t } = useTranslation()
   const { setSession } = useAuthStore()
   const [error, setError] = useState('')
@@ -29,15 +38,20 @@ export default function LoginPage({ onSwitch }: Props) {
 
   const onSubmit = async (data: FormData) => {
     setError('')
-    const user = await userRepository.getByUsername(data.username)
-    if (!user) { setError(t('auth.invalidCredentials')); return }
-
-    const ok = await bcrypt.compare(data.password, user.passwordHash)
-    if (!ok) { setError(t('auth.invalidCredentials')); return }
-
-    const expires = new Date()
-    expires.setDate(expires.getDate() + 7)
-    setSession({ userId: user.id, username: user.username, displayName: user.displayName, avatarColor: user.avatarColor, expiresAt: expires.toISOString() })
+    try {
+      const res = await api.post<AuthResponse>('/api/auth/login', data)
+      const session: Session = {
+        userId: res.userId,
+        username: res.username,
+        displayName: res.displayName,
+        avatarColor: res.avatarColor,
+        expiresAt: res.expiresAt,
+        token: res.token,
+      }
+      setSession(session)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.invalidCredentials'))
+    }
   }
 
   return (
@@ -58,10 +72,13 @@ export default function LoginPage({ onSwitch }: Props) {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>{t('auth.login')}</Button>
-            <p className="text-center text-sm text-muted-foreground">
-              {t('auth.noAccount')}{' '}
-              <button type="button" onClick={onSwitch} className="text-primary hover:underline">{t('auth.register')}</button>
-            </p>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>
+                {t('auth.noAccount')}{' '}
+                <button type="button" onClick={onSwitch} className="text-primary hover:underline">{t('auth.register')}</button>
+              </span>
+              <button type="button" onClick={onForgot} className="text-primary hover:underline">Quên mật khẩu?</button>
+            </div>
           </form>
         </CardContent>
       </Card>

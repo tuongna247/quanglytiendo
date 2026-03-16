@@ -13,6 +13,7 @@ import JournalPage from '@/pages/JournalPage'
 import DevotionPage from '@/pages/DevotionPage'
 import SettingsPage from '@/pages/SettingsPage'
 import EbookPage from '@/pages/EbookPage'
+import ResetPasswordPage from '@/pages/ResetPasswordPage'
 
 function LoginRoute() {
   const session = useAuthStore(s => s.session)
@@ -25,6 +26,7 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />

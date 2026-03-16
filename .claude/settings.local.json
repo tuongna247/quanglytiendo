@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(find d:/Projects/GitHub-GitLap/quanly_tiendo -maxdepth 3 -name .env* -o -name appsettings*)",
+      "Bash(npm run:*)",
+      "Bash(ls d:/Projects/GitHub-GitLap/quanly_tiendo/*.ts d:/Projects/GitHub-GitLap/quanly_tiendo/*.js d:/Projects/GitHub-GitLap/quanly_tiendo/*.cjs)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(dotnet-ef migrations:*)"
     ]
   }
 }

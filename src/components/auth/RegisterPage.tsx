@@ -2,21 +2,20 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { nanoid } from 'nanoid'
-import bcrypt from 'bcryptjs'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { userRepository } from '@/db/userRepository'
 import { useAuthStore } from '@/store/useAuthStore'
+import { api } from '@/lib/apiClient'
 import { AVATAR_COLORS } from '@/lib/constants'
-import { nowISO } from '@/lib/utils'
+import type { Session } from '@/types/auth.types'
 
 const schema = z.object({
   username: z.string().min(3, 'Tối thiểu 3 ký tự').max(30).regex(/^[a-z0-9_]+$/, 'Chỉ dùng a-z, 0-9, _'),
   displayName: z.string().min(1, 'Bắt buộc').max(50),
+  email: z.string().email('Email không hợp lệ'),
   password: z.string().min(6, 'Tối thiểu 6 ký tự'),
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, {
@@ -26,6 +25,15 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 interface Props { onSwitch: () => void }
+
+interface AuthResponse {
+  token: string
+  userId: string
+  username: string
+  displayName: string
+  avatarColor: string
+  expiresAt: string
+}
 
 export default function RegisterPage({ onSwitch }: Props) {
   const { t } = useTranslation()
@@ -37,17 +45,27 @@ export default function RegisterPage({ onSwitch }: Props) {
 
   const onSubmit = async (data: FormData) => {
     setError('')
-    const existing = await userRepository.getByUsername(data.username)
-    if (existing) { setError(t('auth.usernameExists')); return }
-
-    const passwordHash = await bcrypt.hash(data.password, 10)
-    const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]
-    const user = { id: nanoid(), username: data.username, displayName: data.displayName, passwordHash, avatarColor: color, createdAt: nowISO() }
-    await userRepository.create(user)
-
-    const expires = new Date()
-    expires.setDate(expires.getDate() + 7)
-    setSession({ userId: user.id, username: user.username, displayName: user.displayName, avatarColor: color, expiresAt: expires.toISOString() })
+    try {
+      const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]
+      const res = await api.post<AuthResponse>('/api/auth/register', {
+        username: data.username,
+        displayName: data.displayName,
+        email: data.email,
+        password: data.password,
+        avatarColor: color,
+      })
+      const session: Session = {
+        userId: res.userId,
+        username: res.username,
+        displayName: res.displayName,
+        avatarColor: res.avatarColor,
+        expiresAt: res.expiresAt,
+        token: res.token,
+      }
+      setSession(session)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Đăng ký thất bại')
+    }
   }
 
   return (
@@ -65,6 +83,11 @@ export default function RegisterPage({ onSwitch }: Props) {
               <Label>{t('auth.displayName')}</Label>
               <Input {...register('displayName')} placeholder="Nguyễn Văn A" />
               {errors.displayName && <p className="text-xs text-destructive">{errors.displayName.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <Input type="email" {...register('email')} placeholder="email@example.com" />
+              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-1">
               <Label>{t('auth.password')}</Label>

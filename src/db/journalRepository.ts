@@ -8,7 +8,7 @@ export const journalRepository = {
     db.dailyNotes.where('userId').equals(userId).sortBy('date'),
   upsert: async (note: DailyNote) => {
     const existing = await journalRepository.getByDate(note.userId, note.date)
-    if (existing) return db.dailyNotes.update(existing.id, note)
+    if (existing) { const { id: _id, ...changes } = note; return db.dailyNotes.update(existing.id, changes) }
     return db.dailyNotes.add(note)
   },
   delete: (id: string) => db.dailyNotes.delete(id),

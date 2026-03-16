@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<MemorizePassage> MemorizePassages => Set<MemorizePassage>();
     public DbSet<FixedExpense> FixedExpenses => Set<FixedExpense>();
     public DbSet<FixedExpenseApplication> FixedExpenseApplications => Set<FixedExpenseApplication>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +38,17 @@ public class AppDbContext : DbContext
             e.Property(u => u.Id).HasDefaultValueSql("NEWID()");
             e.Property(u => u.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
             e.HasIndex(u => u.Username).IsUnique();
+            e.HasIndex(u => u.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.HasOne(x => x.User)
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── CalendarEvent ────────────────────────────────────────────────────

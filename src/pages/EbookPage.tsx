@@ -23,9 +23,9 @@ export default function EbookPage() {
   const [jumpPage, setJumpPage] = useState('')
 
   const savedBooks = useLiveQuery(
-    () => userId ? ebookRepository.getBooks(userId) : Promise.resolve([]),
+    () => userId ? ebookRepository.getBooks(userId) : Promise.resolve([] as EbookBook[]),
     [userId],
-    [],
+    [] as EbookBook[],
   )
 
   const {

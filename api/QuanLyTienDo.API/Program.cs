@@ -53,6 +53,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 // ── Application Services ──────────────────────────────────────────────────────
+builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 // ── Controllers ───────────────────────────────────────────────────────────────

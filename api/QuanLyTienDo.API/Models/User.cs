@@ -7,6 +7,7 @@ public class User
     public string DisplayName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string AvatarColor { get; set; } = "#2196f3";
+    public string? Email { get; set; }
     public DateTime CreatedAt { get; set; }
 
     // Navigation
