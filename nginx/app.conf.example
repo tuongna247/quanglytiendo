@@ -1,0 +1,26 @@
+# Thêm file này vào /etc/nginx/sites-available/qltiando
+# rồi: sudo ln -s /etc/nginx/sites-available/qltiando /etc/nginx/sites-enabled/
+# sudo nginx -t && sudo systemctl reload nginx
+
+# ── HTTP (hoặc dùng Certbot để tự động thêm HTTPS) ────────────────────────────
+server {
+    listen 80;
+    server_name yourdomain.com;   # ← đổi thành domain/IP thật
+
+    # Nếu dùng HTTPS, Certbot sẽ tự thêm redirect vào đây
+
+    location / {
+        proxy_pass         http://127.0.0.1:3010;   # ← WEB_PORT trong .env
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection 'upgrade';
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# ── HTTPS (sau khi có cert — chạy: sudo certbot --nginx -d yourdomain.com) ────
+# Certbot sẽ tự tạo server block 443, chỉ cần chạy lệnh trên.

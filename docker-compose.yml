@@ -46,12 +46,13 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+      args:
+        API_URL: "http://api:5015"
     container_name: qltiando_web
     depends_on:
       - api
     environment:
       NODE_ENV: production
-      API_URL: "http://api:5015"
     ports:
       - "${WEB_PORT:-3010}:3000"
     restart: unless-stopped
