@@ -59,100 +59,62 @@ const HIGHLIGHT_COLORS = [
   { value: 'orange', bg: '#FB8C00', label: 'Cam' },
 ];
 
-// ── buildSegments helper ──────────────────────────────────────────────────────
-function buildSegments(text, highlights, comments) {
-  const boundaries = [];
+// ── Build segments for a single paragraph (local offsets 0..para.length) ─────
+function buildParaSegments(para, paraStart, highlights, comments) {
+  // Adjust highlight/comment offsets to be local to this paragraph
+  const local = (items) => items
+    .filter(x => x.endOffset > paraStart && x.startOffset < paraStart + para.length)
+    .map(x => ({
+      ...x,
+      startOffset: Math.max(0, x.startOffset - paraStart),
+      endOffset: Math.min(para.length, x.endOffset - paraStart),
+    }));
 
-  for (const h of highlights) {
-    if (h.startOffset < text.length && h.endOffset <= text.length) {
-      boundaries.push({ offset: h.startOffset, type: 'start', annotation: h });
-      boundaries.push({ offset: h.endOffset, type: 'end', annotation: h });
-    }
-  }
-  for (const c of comments) {
-    if (c.startOffset < text.length && c.endOffset <= text.length) {
-      boundaries.push({ offset: c.startOffset, type: 'start', annotation: c });
-      boundaries.push({ offset: c.endOffset, type: 'end', annotation: c });
-    }
-  }
+  const lh = local(highlights);
+  const lc = local(comments);
 
-  const offsets = [...new Set([0, text.length, ...boundaries.map(b => b.offset)])].sort((a, b) => a - b);
+  if (lh.length === 0 && lc.length === 0) return [{ text: para, highlight: null, comment: null }];
 
-  const segments = [];
-  for (let i = 0; i < offsets.length - 1; i++) {
-    const start = offsets[i];
-    const end = offsets[i + 1];
-    if (start === end) continue;
+  const pts = new Set([0, para.length]);
+  [...lh, ...lc].forEach(x => { pts.add(x.startOffset); pts.add(x.endOffset); });
+  const sorted = [...pts].sort((a, b) => a - b);
 
-    const activeHighlight = highlights.find(h => h.startOffset <= start && h.endOffset >= end);
-    const activeComment = comments.find(c => c.startOffset <= start && c.endOffset >= end);
-
-    segments.push({ text: text.slice(start, end), highlight: activeHighlight, comment: activeComment, start, end });
-  }
-
-  return segments;
+  return sorted.slice(0, -1).map((start, i) => {
+    const end = sorted[i + 1];
+    return {
+      text: para.slice(start, end),
+      highlight: lh.find(h => h.startOffset <= start && h.endOffset >= end) || null,
+      comment: lc.find(c => c.startOffset <= start && c.endOffset >= end) || null,
+    };
+  }).filter(s => s.text.length > 0);
 }
 
 // ── EbookPageContent ──────────────────────────────────────────────────────────
 function EbookPageContent({ pageNumber, text, highlights, comments, onTextSelection, fontSize = 17 }) {
-  const paragraphs = text.split('\n\n').filter(p => p.trim());
-  const segments = useMemo(() => buildSegments(text, highlights, comments), [text, highlights, comments]);
+  const paragraphs = useMemo(() => {
+    let offset = 0;
+    return text.split('\n\n').filter(p => p.trim()).map(para => {
+      const idx = text.indexOf(para, offset);
+      offset = idx + para.length + 2;
+      return { text: para, start: idx };
+    });
+  }, [text]);
 
-  const renderParagraph = (para, paraStart) => {
-    const paraEnd = paraStart + para.length;
-    const paraSegments = segments.filter(s => s.start >= paraStart && s.end <= paraEnd + 1);
-
-    if (paraSegments.length === 0) return <span>{para}</span>;
-
-    return (
-      <>
-        {paraSegments.map((seg, i) => {
-          if (seg.comment) {
-            const colors = COLOR_MAP[seg.highlight?.color || 'yellow'] || COLOR_MAP.yellow;
-            return (
-              <span
-                key={i}
-                title={seg.comment.content}
-                style={{
-                  backgroundColor: colors.bg,
-                  borderBottom: `2px solid ${colors.border}`,
-                  borderRadius: 2,
-                  cursor: 'pointer',
-                }}
-              >
-                {seg.text}
-                <span style={{ fontSize: '0.7em', verticalAlign: 'super', marginLeft: 1 }}>💬</span>
-              </span>
-            );
-          }
-          if (seg.highlight) {
-            const colors = COLOR_MAP[seg.highlight.color] || COLOR_MAP.yellow;
-            return (
-              <span
-                key={i}
-                style={{
-                  backgroundColor: colors.bg,
-                  borderBottom: `2px solid ${colors.border}`,
-                  borderRadius: 2,
-                }}
-              >
-                {seg.text}
-              </span>
-            );
-          }
-          return <span key={i}>{seg.text}</span>;
-        })}
-      </>
-    );
+  const renderSegment = (seg, i) => {
+    if (seg.comment) {
+      const colors = COLOR_MAP[seg.highlight?.color || 'yellow'] || COLOR_MAP.yellow;
+      return (
+        <span key={i} title={seg.comment.content} style={{ backgroundColor: colors.bg, borderBottom: `2px solid ${colors.border}`, borderRadius: 2, cursor: 'pointer' }}>
+          {seg.text}<span style={{ fontSize: '0.7em', verticalAlign: 'super', marginLeft: 1 }}>💬</span>
+        </span>
+      );
+    }
+    if (seg.highlight) {
+      const colors = COLOR_MAP[seg.highlight.color] || COLOR_MAP.yellow;
+      return <span key={i} style={{ backgroundColor: colors.bg, borderBottom: `2px solid ${colors.border}`, borderRadius: 2 }}>{seg.text}</span>;
+    }
+    return <span key={i}>{seg.text}</span>;
   };
-
-  let offset = 0;
-  const paraItems = [];
-  for (const para of paragraphs) {
-    const idx = text.indexOf(para, offset);
-    paraItems.push({ text: para, start: idx });
-    offset = idx + para.length + 2;
-  }
 
   return (
     <Box
@@ -161,15 +123,14 @@ function EbookPageContent({ pageNumber, text, highlights, comments, onTextSelect
       onTouchEnd={() => onTextSelection(pageNumber)}
       sx={{ fontFamily: '"Segoe UI", system-ui, sans-serif', fontSize: `${fontSize}px`, lineHeight: 2, color: 'text.primary', userSelect: 'text' }}
     >
-      {paraItems.map((item, i) => (
-        <Typography
-          key={i}
-          component="p"
-          sx={{ mb: 2.5, fontFamily: '"Segoe UI", system-ui, sans-serif', fontSize: `${fontSize}px`, lineHeight: 2 }}
-        >
-          {renderParagraph(item.text, item.start)}
-        </Typography>
-      ))}
+      {paragraphs.map((item, i) => {
+        const segs = buildParaSegments(item.text, item.start, highlights, comments);
+        return (
+          <Typography key={i} component="p" sx={{ mb: 2.5, fontFamily: '"Segoe UI", system-ui, sans-serif', fontSize: `${fontSize}px`, lineHeight: 2 }}>
+            {segs.map(renderSegment)}
+          </Typography>
+        );
+      })}
     </Box>
   );
 }
