@@ -7,6 +7,7 @@ import type { PlannerItem } from '@/types/planner.types'
 import type { WeightLog, ExerciseSession, HealthGoal, BodyCheckIn } from '@/types/health.types'
 import type { DailyNote } from '@/types/journal.types'
 import type { DailyDevotion, BibleReadingPlan, BibleReadingDay } from '@/types/devotion.types'
+import type { EbookBook, EbookHighlight, EbookComment, EbookBookmark, EbookProgress } from '@/types/ebook.types'
 
 export const db = new Dexie('AppQuanLyTienDo') as Dexie & {
   users: EntityTable<User, 'id'>
@@ -22,6 +23,11 @@ export const db = new Dexie('AppQuanLyTienDo') as Dexie & {
   dailyDevotions: EntityTable<DailyDevotion, 'id'>
   bibleReadingPlans: EntityTable<BibleReadingPlan, 'id'>
   bibleReadingDays: EntityTable<BibleReadingDay, 'id'>
+  ebookBooks: EntityTable<EbookBook, 'id'>
+  ebookHighlights: EntityTable<EbookHighlight, 'id'>
+  ebookComments: EntityTable<EbookComment, 'id'>
+  ebookBookmarks: EntityTable<EbookBookmark, 'id'>
+  ebookProgress: EntityTable<EbookProgress, 'id'>
 }
 
 db.version(1).stores({
@@ -38,4 +44,12 @@ db.version(1).stores({
   dailyDevotions:   '&id, userId, date',
   bibleReadingPlans: '&id, userId',
   bibleReadingDays: '&id, planId, userId, dayNumber, scheduledDate, isCompleted',
+})
+
+db.version(2).stores({
+  ebookBooks:      '&id, userId, uploadedAt',
+  ebookHighlights: '&id, userId, bookId, pageNumber',
+  ebookComments:   '&id, userId, bookId, pageNumber',
+  ebookBookmarks:  '&id, userId, bookId, pageNumber',
+  ebookProgress:   '&id, userId, bookId',
 })
