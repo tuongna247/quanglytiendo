@@ -52,6 +52,12 @@ builder.Services.AddCors(options =>
 // ── AutoMapper ────────────────────────────────────────────────────────────────
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+// ── Response Compression ──────────────────────────────────────────────────────
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+
 // ── Application Services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -127,6 +133,7 @@ if (app.Environment.IsDevelopment())
 if (!app.Environment.IsProduction())
     app.UseHttpsRedirection();
 
+app.UseResponseCompression();
 app.UseCors();
 
 app.UseAuthentication();

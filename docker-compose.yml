@@ -8,10 +8,15 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD}"
-      MSSQL_PID: "Express"
+      MSSQL_PID: "Developer"
+      # Giới hạn RAM SQL Server dùng (MB) — tránh chiếm hết RAM server
+      MSSQL_MEMORY_LIMIT_MB: "2048"
     volumes:
       - db_data:/var/opt/mssql
-    # Không expose ra ngoài — chỉ API container mới kết nối được
+    deploy:
+      resources:
+        limits:
+          memory: 2.5g
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${DB_SA_PASSWORD}", "-C", "-Q", "SELECT 1"]
@@ -39,9 +44,12 @@ services:
       SendGrid__ApiKey: "${SENDGRID_API_KEY:-}"
       SendGrid__FromEmail: "${SENDGRID_FROM_EMAIL:-noreply@example.com}"
       App__Url: "${APP_URL:-http://localhost:3010}"
-    # Chỉ expose nội bộ qua web container — không cần port ra ngoài
     expose:
       - "5015"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     restart: unless-stopped
 
   # ── Next.js Web ───────────────────────────────────────────────────────────────
@@ -56,8 +64,14 @@ services:
       - api
     environment:
       NODE_ENV: production
+      # Giới hạn Node.js heap để tránh OOM
+      NODE_OPTIONS: "--max-old-space-size=512"
     ports:
       - "${WEB_PORT:-3010}:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 700m
     restart: unless-stopped
 
 volumes:
