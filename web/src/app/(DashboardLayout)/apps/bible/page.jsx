@@ -163,21 +163,42 @@ function getReadingFromPlan(plan, dateStr) {
 }
 
 function usePlanConfig(userId) {
-  const storageKey = userId ? `qlTD_plan_config_${userId}` : null;
   const def = { type: 'option1', duration: '1y', startDate: '', startWeekOverride: null, generatedPlan: null };
   const [config, setConfig] = useState(def);
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
-    if (!storageKey) return;
-    try {
-      const r = localStorage.getItem(storageKey);
-      if (r) setConfig(c => ({ ...c, ...JSON.parse(r) }));
-    } catch {}
-  }, [storageKey]);
-  function saveConfig(c) {
+    if (!userId) return;
+    apiClient.get('/api/bible-plan-config')
+      .then(data => {
+        if (data) {
+          setConfig({
+            type: data.type || 'option1',
+            duration: data.duration || '1y',
+            startDate: data.startDate || '',
+            startWeekOverride: data.startWeekOverride ?? null,
+            generatedPlan: data.generatedPlanJson ? JSON.parse(data.generatedPlanJson) : null,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [userId]);
+
+  async function saveConfig(c) {
     setConfig(c);
-    if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(c)); } catch {} }
+    try {
+      await apiClient.post('/api/bible-plan-config', {
+        type: c.type,
+        duration: c.duration,
+        startDate: c.startDate || '',
+        startWeekOverride: c.startWeekOverride ?? null,
+        generatedPlanJson: c.generatedPlan ? JSON.stringify(c.generatedPlan) : null,
+      });
+    } catch {}
   }
-  return { config, saveConfig };
+
+  return { config, saveConfig, loaded };
 }
 
 // ── Plan Setup Dialog ─────────────────────────────────────────────────────────
@@ -665,9 +686,20 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
 }
 
 // ── Tab 2: Reading Plan ───────────────────────────────────────────────────────
-function ReadingPlanTab({ activePlan, planConfig, savePlanConfig, onReadBook, completed, onToggleCompleted, onCatchUp, catchingUp }) {
+function ReadingPlanTab({ activePlan, planConfig, planConfigLoaded, savePlanConfig, onReadBook, completed, onToggleCompleted, onCatchUp, catchingUp }) {
   const [weekIdx, setWeekIdx] = useState(getCurrentWeekIdx);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [configApplied, setConfigApplied] = useState(false);
+
+  // Sync weekIdx once when planConfig loads from API (async)
+  useEffect(() => {
+    if (!configApplied && planConfigLoaded) {
+      setConfigApplied(true);
+      if (planConfig.startWeekOverride != null) {
+        setWeekIdx(planConfig.startWeekOverride - 1);
+      }
+    }
+  }, [planConfig, planConfigLoaded, configApplied]);
 
   const todayStr = toLocalDateStr(new Date());
 
@@ -876,7 +908,7 @@ function BibleReader() {
   const initTab = parseInt(searchParams.get('tab') || '0', 10);
 
   const { user } = useAuth();
-  const { config: planConfig, saveConfig: savePlanConfig } = usePlanConfig(user?.userId);
+  const { config: planConfig, saveConfig: savePlanConfig, loaded: planConfigLoaded } = usePlanConfig(user?.userId);
   const activePlan = planConfig.type === 'option2' && planConfig.generatedPlan?.length
     ? planConfig.generatedPlan
     : BIBLE_READING_PLAN;
@@ -999,7 +1031,7 @@ function BibleReader() {
           activePlan={activePlan}
         />
       )}
-      {tab === 1 && <ReadingPlanTab activePlan={activePlan} planConfig={planConfig} savePlanConfig={savePlanConfig} onReadBook={goReadBook} completed={completed} onToggleCompleted={toggleCompleted} onCatchUp={catchUp} catchingUp={catchingUp} />}
+      {tab === 1 && <ReadingPlanTab activePlan={activePlan} planConfig={planConfig} planConfigLoaded={planConfigLoaded} savePlanConfig={savePlanConfig} onReadBook={goReadBook} completed={completed} onToggleCompleted={toggleCompleted} onCatchUp={catchUp} catchingUp={catchingUp} />}
       {tab === 2 && <AllBooksTab onSelectBook={id => goReadBook(id, 1, 1)} />}
     </Box>
   );
