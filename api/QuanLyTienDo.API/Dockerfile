@@ -6,7 +6,7 @@ COPY QuanLyTienDo.API.csproj ./
 RUN dotnet restore
 
 COPY . ./
-RUN dotnet publish -c Release -o /app/publish --no-restore -p:PublishReadyToRun=true
+RUN dotnet publish -c Release -o /app/publish --no-restore
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
