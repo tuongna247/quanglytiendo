@@ -18,3 +18,9 @@ nginx/certs/
 .DS_Store
 *.log
 Thumbs.db
+
+# Local notes / AI context (not for public repo)
+Notes.txt
+claude.md
+plan.md
+.claude/
