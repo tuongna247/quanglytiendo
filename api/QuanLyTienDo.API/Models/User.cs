@@ -26,4 +26,5 @@ public class User
     public UserBiblePlanConfig? BiblePlanConfig { get; set; }
     public ICollection<MemorizePassage> MemorizePassages { get; set; } = new List<MemorizePassage>();
     public ICollection<FixedExpense> FixedExpenses { get; set; } = new List<FixedExpense>();
+    public ICollection<EbookBook> EbookBooks { get; set; } = new List<EbookBook>();
 }

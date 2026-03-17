@@ -26,6 +26,11 @@ public class AppDbContext : DbContext
     public DbSet<FixedExpense> FixedExpenses => Set<FixedExpense>();
     public DbSet<FixedExpenseApplication> FixedExpenseApplications => Set<FixedExpenseApplication>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<EbookBook> EbookBooks => Set<EbookBook>();
+    public DbSet<EbookHighlight> EbookHighlights => Set<EbookHighlight>();
+    public DbSet<EbookComment> EbookComments => Set<EbookComment>();
+    public DbSet<EbookBookmark> EbookBookmarks => Set<EbookBookmark>();
+    public DbSet<EbookProgress> EbookProgresses => Set<EbookProgress>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -273,6 +278,69 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.FixedExpense)
              .WithMany(f => f.Applications)
              .HasForeignKey(x => x.FixedExpenseId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── EbookBook ────────────────────────────────────────────────────────────
+        modelBuilder.Entity<EbookBook>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.UploadedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.PagesJson).HasColumnType("nvarchar(max)");
+            e.HasOne(x => x.User)
+             .WithMany(u => u.EbookBooks)
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── EbookHighlight ───────────────────────────────────────────────────────
+        modelBuilder.Entity<EbookHighlight>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasOne(x => x.Book)
+             .WithMany(b => b.Highlights)
+             .HasForeignKey(x => x.BookId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── EbookComment ─────────────────────────────────────────────────────────
+        modelBuilder.Entity<EbookComment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasOne(x => x.Book)
+             .WithMany(b => b.Comments)
+             .HasForeignKey(x => x.BookId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── EbookBookmark ────────────────────────────────────────────────────────
+        modelBuilder.Entity<EbookBookmark>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasOne(x => x.Book)
+             .WithMany(b => b.Bookmarks)
+             .HasForeignKey(x => x.BookId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── EbookProgress ────────────────────────────────────────────────────────
+        modelBuilder.Entity<EbookProgress>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.LastReadAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasIndex(x => new { x.UserId, x.BookId }).IsUnique();
+            e.HasOne(x => x.Book)
+             .WithMany(b => b.Progresses)
+             .HasForeignKey(x => x.BookId)
              .OnDelete(DeleteBehavior.Cascade);
         });
     }

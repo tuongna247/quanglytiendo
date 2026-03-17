@@ -34,6 +34,8 @@ import {
   IconEdit,
   IconCheck,
   IconAlertCircle,
+  IconMaximize,
+  IconMinimize,
 } from '@tabler/icons-react';
 
 import PageContainer from '@/app/components/container/PageContainer';
@@ -564,15 +566,41 @@ function EbookReader() {
   const [activeBook, setActiveBook] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Default sidebar closed on mobile (after hydration)
+  useEffect(() => {
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, []);
   const [jumpPage, setJumpPage] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [supportsFullscreen, setSupportsFullscreen] = useState(false);
+  const readerRef = useRef(null);
+  const touchStartX = useRef(null);
+
+  useEffect(() => {
+    setSupportsFullscreen(!!document.documentElement.requestFullscreen);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      readerRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // Books list
   const [savedBooks, setSavedBooks] = useState([]);
 
   useEffect(() => {
-    if (!userId) return;
-    ebookRepository.getBooks(userId).then(setSavedBooks).catch(() => {});
-  }, [userId]);
+    ebookRepository.getBooks().then(books => setSavedBooks(books || [])).catch(() => {});
+  }, []);
 
   // Font size + dynamic pagination
   const [fontSize, setFontSize] = useState(17);
@@ -610,35 +638,35 @@ function EbookReader() {
 
   // Load book data when activeBook changes
   useEffect(() => {
-    if (!activeBook || !userId) return;
+    if (!activeBook) return;
     setReaderLoading(true);
     setError(null);
     Promise.all([
-      ebookRepository.getHighlights(userId, activeBook.id),
-      ebookRepository.getComments(userId, activeBook.id),
-      ebookRepository.getBookmarks(userId, activeBook.id),
-      ebookRepository.getProgress(userId, activeBook.id),
+      ebookRepository.getHighlights(activeBook.id),
+      ebookRepository.getComments(activeBook.id),
+      ebookRepository.getBookmarks(activeBook.id),
+      ebookRepository.getProgress(activeBook.id),
     ]).then(([h, c, b, p]) => {
-      setHighlights(h);
-      setComments(c);
-      setBookmarks(b);
-      if (p) setCurrentPage(p.currentPage);
+      setHighlights(h || []);
+      setComments(c || []);
+      setBookmarks(b || []);
+      if (p && p.currentPage) setCurrentPage(p.currentPage);
       else setCurrentPage(1);
       setReaderLoading(false);
     }).catch(() => {
       setError('Không thể tải dữ liệu sách.');
       setReaderLoading(false);
     });
-  }, [activeBook, userId]);
+  }, [activeBook]);
 
   // Auto-save progress (debounced)
   useEffect(() => {
-    if (!activeBook || !userId) return;
+    if (!activeBook) return;
     if (saveProgressTimer.current) clearTimeout(saveProgressTimer.current);
     saveProgressTimer.current = setTimeout(() => {
-      ebookRepository.saveProgress(userId, activeBook.id, currentPage, activeBook.totalPages).catch(() => {});
+      ebookRepository.saveProgress(null, activeBook.id, currentPage).catch(() => {});
     }, 1000);
-  }, [currentPage, activeBook, userId]);
+  }, [currentPage, activeBook]);
 
   const goToPage = useCallback((page) => {
     if (!activeBook) return;
@@ -669,7 +697,7 @@ function EbookReader() {
     if (!selection || !activeBook) return;
     try {
       const h = await ebookRepository.addHighlight(
-        userId, activeBook.id, selection.pageNumber,
+        null, activeBook.id, selection.pageNumber,
         selection.startOffset, selection.endOffset, selection.text, color,
       );
       setHighlights(prev => [...prev, h]);
@@ -684,7 +712,7 @@ function EbookReader() {
     if (!selection || !activeBook) return;
     try {
       const c = await ebookRepository.addComment(
-        userId, activeBook.id, selection.pageNumber,
+        null, activeBook.id, selection.pageNumber,
         selection.startOffset, selection.endOffset, selection.text, content,
       );
       setComments(prev => [...prev, c]);
@@ -715,19 +743,15 @@ function EbookReader() {
 
   const toggleBookmark = useCallback(async () => {
     if (!activeBook) return;
-    const existing = bookmarks.find(b => b.pageNumber === currentPage);
-    if (existing) {
-      try {
-        await ebookRepository.deleteBookmark(existing.id);
-        setBookmarks(prev => prev.filter(b => b.id !== existing.id));
-      } catch { setError('Không thể xóa bookmark.'); }
-    } else {
-      try {
-        const b = await ebookRepository.addBookmark(userId, activeBook.id, currentPage, `Trang ${currentPage}`);
-        setBookmarks(prev => [...prev, b]);
-      } catch { setError('Không thể lưu bookmark.'); }
-    }
-  }, [activeBook, currentPage, bookmarks, userId]);
+    try {
+      const result = await ebookRepository.addBookmark(null, activeBook.id, currentPage, `Trang ${currentPage}`);
+      if (result && result.removed) {
+        setBookmarks(prev => prev.filter(b => b.pageNumber !== currentPage));
+      } else if (result && result.id) {
+        setBookmarks(prev => [...prev.filter(b => b.pageNumber !== currentPage), result]);
+      }
+    } catch { setError('Không thể cập nhật bookmark.'); }
+  }, [activeBook, currentPage]);
 
   const isBookmarked = bookmarks.some(b => b.pageNumber === currentPage);
   const pageHighlights = highlights.filter(h => h.pageNumber === currentPage);
@@ -744,7 +768,7 @@ function EbookReader() {
         pages = await parseDocxToPages(file);
       }
       const title = file.name.replace(/\.(docx|pdf)$/i, '');
-      const book = await ebookRepository.saveBook(userId, title, pages);
+      const book = await ebookRepository.saveBook(null, title, pages);
       setSavedBooks(prev => [...prev, book]);
       setActiveBook(book);
     } catch {
@@ -752,12 +776,14 @@ function EbookReader() {
     } finally {
       setUploading(false);
     }
-  }, [userId]);
+  }, []);
 
   const handleDeleteBook = useCallback(async (id) => {
-    await ebookRepository.deleteBook(id);
-    setSavedBooks(prev => prev.filter(b => b.id !== id));
-    if (activeBook?.id === id) setActiveBook(null);
+    try {
+      await ebookRepository.deleteBook(id);
+      setSavedBooks(prev => prev.filter(b => b.id !== id));
+      if (activeBook?.id === id) setActiveBook(null);
+    } catch { setError('Không thể xóa sách.'); }
   }, [activeBook]);
 
   // Keyboard navigation
@@ -768,10 +794,11 @@ function EbookReader() {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goToPage(currentPage + 1);
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goToPage(currentPage - 1);
       if (e.key === 'b') toggleBookmark();
+      if (e.key === 'f' || e.key === 'F') toggleFullscreen();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activeBook, currentPage, goToPage, toggleBookmark]);
+  }, [activeBook, currentPage, goToPage, toggleBookmark, toggleFullscreen]);
 
   // Close toolbar on outside click
   useEffect(() => {
@@ -786,13 +813,26 @@ function EbookReader() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const handleOpenBook = useCallback(async (bookOrMeta) => {
+    if (bookOrMeta.pages) {
+      setActiveBook(bookOrMeta);
+    } else {
+      try {
+        const full = await ebookRepository.getBook(bookOrMeta.id);
+        setActiveBook(full);
+      } catch {
+        setError('Không thể tải sách.');
+      }
+    }
+  }, []);
+
   // Upload / library view
   if (!activeBook) {
     return (
       <UploadPage
         books={savedBooks}
         onUpload={handleUpload}
-        onOpenBook={setActiveBook}
+        onOpenBook={handleOpenBook}
         onDeleteBook={handleDeleteBook}
         loading={uploading}
       />
@@ -803,7 +843,7 @@ function EbookReader() {
   const progress = Math.round((currentPage / totalPages) * 100);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#f5f0e8' }}>
+    <Box ref={readerRef} sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#f5f0e8', position: 'relative', overflowX: 'hidden', ...(isFullscreen && { position: 'fixed', inset: 0, zIndex: 9999, height: '100vh' }) }}>
       {/* Top bar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 56, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', position: 'sticky', top: 0, zIndex: 1200, flexShrink: 0 }}>
         <IconButton size="small" onClick={() => setSidebarOpen(v => !v)} title={sidebarOpen ? 'Ẩn sidebar' : 'Mở sidebar'}>
@@ -839,6 +879,14 @@ function EbookReader() {
           </IconButton>
         </Tooltip>
 
+        {supportsFullscreen && (
+          <Tooltip title={isFullscreen ? 'Thoát toàn màn hình (F)' : 'Toàn màn hình (F)'}>
+            <IconButton size="small" onClick={toggleFullscreen} sx={{ color: isFullscreen ? 'primary.main' : 'text.secondary' }}>
+              {isFullscreen ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
+            </IconButton>
+          </Tooltip>
+        )}
+
         <Button
           size="small"
           variant="contained"
@@ -862,13 +910,10 @@ function EbookReader() {
               currentPage={currentPage}
               onGoToPage={goToPage}
               onDeleteBookmark={async (id) => {
-                const b = bookmarks.find(bk => bk.id === id);
-                if (b && b.pageNumber === currentPage) {
-                  await toggleBookmark();
-                } else if (b) {
+                try {
                   await ebookRepository.deleteBookmark(id);
                   setBookmarks(prev => prev.filter(bk => bk.id !== id));
-                }
+                } catch { setError('Không thể xóa bookmark.'); }
               }}
               onDeleteComment={deleteComment}
               onUpdateComment={updateComment}
@@ -877,8 +922,20 @@ function EbookReader() {
         )}
 
         {/* Main reading area */}
-        <Box component="main" sx={{ flex: 1, overflow: 'visible' }}>
-          <Box sx={{ maxWidth: 960, mx: 'auto', px: 4, py: 4 }}>
+        <Box
+          component="main"
+          onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={e => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            touchStartX.current = null;
+            if (Math.abs(dx) < 50) return;
+            if (dx < 0) goToPage(currentPage + 1); // swipe left → next
+            else goToPage(currentPage - 1);         // swipe right → prev
+          }}
+          sx={{ flex: 1, overflow: 'auto', ...(isFullscreen && { height: 'calc(100vh - 62px)' }) }}
+        >
+          <Box sx={{ maxWidth: 960, mx: 'auto', px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 4 } }}>
             {readerLoading && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                 <Chip
@@ -911,7 +968,7 @@ function EbookReader() {
               />
             </Box>
 
-            <Paper elevation={0} variant="outlined" sx={{ px: 4, py: 5, minHeight: 500, borderRadius: 2 }}>
+            <Paper elevation={0} variant="outlined" sx={{ px: { xs: 2, sm: 4 }, py: { xs: 3, sm: 5 }, minHeight: 500, borderRadius: 2 }}>
               <EbookPageContent
                 pageNumber={currentPage}
                 text={currentText}
@@ -984,11 +1041,64 @@ function EbookReader() {
               </IconButton>
             </Box>
 
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 2 }}>
-              ← → để chuyển trang · B để bookmark
+            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' }, textAlign: 'center', mt: 2 }}>
+              ← → để chuyển trang · B để bookmark · F để toàn màn hình
             </Typography>
           </Box>
         </Box>
+      </Box>
+
+      {/* Floating prev/next arrows */}
+      <Box
+        onClick={() => goToPage(currentPage - 1)}
+        sx={{
+          position: 'absolute',
+          left: 8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 1100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          bgcolor: 'rgba(0,0,0,0.3)',
+          color: 'white',
+          cursor: 'pointer',
+          opacity: currentPage === 1 ? 0 : { xs: 1, md: 0 },
+          transition: 'opacity 0.2s',
+          '&:hover': { opacity: currentPage === 1 ? 0 : 1, bgcolor: 'rgba(0,0,0,0.55)' },
+          pointerEvents: currentPage === 1 ? 'none' : 'auto',
+        }}
+      >
+        <IconChevronLeft size={26} />
+      </Box>
+
+      <Box
+        onClick={() => goToPage(currentPage + 1)}
+        sx={{
+          position: 'absolute',
+          right: 8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 1100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          bgcolor: 'rgba(0,0,0,0.3)',
+          color: 'white',
+          cursor: 'pointer',
+          opacity: currentPage === totalPages ? 0 : { xs: 1, md: 0 },
+          transition: 'opacity 0.2s',
+          '&:hover': { opacity: currentPage === totalPages ? 0 : 1, bgcolor: 'rgba(0,0,0,0.55)' },
+          pointerEvents: currentPage === totalPages ? 'none' : 'auto',
+        }}
+      >
+        <IconChevronRight size={26} />
       </Box>
 
       {/* Selection toolbar (floats above everything) */}
