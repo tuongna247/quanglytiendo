@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -39,9 +39,11 @@ import { IconChevronLeft, IconChevronRight, IconPlus, IconTrash, IconBook, IconE
 import Link from 'next/link';
 
 import PageContainer from '@/app/components/container/PageContainer';
+import BibleVerseSelector from '@/app/components/BibleVerseSelector';
 import apiClient from '@/app/lib/apiClient';
 import { BIBLE_READING_PLAN, DAY_LABELS, DAYS } from '@/app/lib/bibleReadingPlan';
 import { bibleUrl, parsePassage, BOOK_ID_TO_NAME } from '@/app/lib/bibleUtils';
+import { BIBLE_BOOKS } from '@/app/lib/bibleData';
 
 const VI_WEEKDAYS = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 const VI_MONTHS = ['tháng 1','tháng 2','tháng 3','tháng 4','tháng 5','tháng 6','tháng 7','tháng 8','tháng 9','tháng 10','tháng 11','tháng 12'];
@@ -186,6 +188,7 @@ function formatViDate(d) { return `${VI_WEEKDAYS[d.getDay()]}, ${d.getDate()} ${
 const emptyPassage = { book: '', chapter: '', verseStart: '', verseEnd: '' };
 const emptyForm = {
   biblePassages: [],
+  bibleRefs: '',
   whatBibleTeaches: '',
   whatILearned: '',
   howToApply: '',
@@ -193,6 +196,33 @@ const emptyForm = {
   memoryVerse: '',
   mood: 'peaceful',
 };
+
+// Convert biblePassages array to bibleRefs string for backward compat
+function passagesToRefs(passages) {
+  return passages
+    .filter(p => p.book && p.chapter && p.verseStart)
+    .map(p => `${p.book} ${p.chapter}:${p.verseStart}${p.verseEnd && p.verseEnd !== p.verseStart ? '-' + p.verseEnd : ''}`)
+    .join('; ');
+}
+
+// Convert bibleRefs string back to biblePassages array for backward compat
+function refsToPassages(refs) {
+  return refs.split('; ').filter(Boolean).map(ref => {
+    const m = ref.match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?$/);
+    if (!m) return null;
+    return { book: m[1], chapter: m[2], verseStart: m[3], verseEnd: m[4] || m[3] };
+  }).filter(Boolean);
+}
+
+/** "Sáng 1-7" → { name: 'Sáng Thế Ký', chapFrom: 1, chapTo: 7 } for BibleVerseSelector suggestedBooks */
+function passageToSuggestedBook(passage) {
+  const parsed = parsePassage(passage);
+  if (!parsed) return null;
+  const bookEntry = BIBLE_BOOKS.find(b => b.id === parsed.bookId);
+  if (!bookEntry) return null;
+  const chapTo = parsed.chTo === 999 ? bookEntry.chapters.length : parsed.chTo;
+  return { name: bookEntry.name, chapFrom: parsed.chFrom, chapTo };
+}
 
 // Bible JSON cache — 5 MB, load once per session
 let bibleCache = null;
@@ -826,6 +856,72 @@ function InlineBibleText({ passage, dateStr, completed, toggle }) {
   );
 }
 
+// ── Bible Inline Reader ────────────────────────────────────────────────────
+function BibleInlineReader({ refs }) {
+  const [bible, setBible] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!expanded || bible) return;
+    setLoading(true);
+    loadBible().then(b => { setBible(b); setLoading(false); }).catch(() => setLoading(false));
+  }, [expanded, bible]);
+
+  const passages = (refs || '').split('; ').map(r => {
+    const m = r.trim().match(/^(.+?)\s+(\d+)(?:-(\d+))?$/);
+    if (!m) return null;
+    const bookEntry = BIBLE_BOOKS.find(b => b.name === m[1]);
+    if (!bookEntry) return null;
+    return { bookId: bookEntry.id, bookName: bookEntry.name, chFrom: parseInt(m[2]), chTo: m[3] ? parseInt(m[3]) : parseInt(m[2]) };
+  }).filter(Boolean);
+
+  if (passages.length === 0) return null;
+
+  return (
+    <Box sx={{ mt: 1 }}>
+      <Button
+        size="small"
+        variant="text"
+        startIcon={<span>{expanded ? '▲' : '▼'}</span>}
+        onClick={() => setExpanded(v => !v)}
+        sx={{ color: 'primary.main', fontWeight: 600, fontSize: 13 }}
+      >
+        {expanded ? 'Ẩn nội dung' : `📖 Đọc nội dung (${passages.map(p => p.chTo - p.chFrom + 1).reduce((a, b) => a + b, 0)} đoạn)`}
+      </Button>
+
+      {expanded && (
+        <Box sx={{ mt: 1, maxHeight: 420, overflowY: 'auto', borderRadius: 1, border: '1px solid', borderColor: 'divider', p: 2, bgcolor: '#fafafa', fontSize: 14, lineHeight: 1.8 }}>
+          {loading && <Typography color="text.secondary">Đang tải...</Typography>}
+          {bible && passages.map((p, pi) => (
+            <Box key={pi} sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'primary.main', mb: 1 }}>
+                {p.bookName}
+              </Typography>
+              {Array.from({ length: p.chTo - p.chFrom + 1 }, (_, i) => p.chFrom + i).map(ch => {
+                const verses = bible[p.bookId]?.[ch - 1] ?? [];
+                return (
+                  <Box key={ch} sx={{ mb: 2 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                      Chương {ch}
+                    </Typography>
+                    {verses.map((v, vi) => (
+                      <Typography key={vi} variant="body2" sx={{ mb: 0.25 }}>
+                        <Box component="span" sx={{ fontWeight: 700, color: 'primary.main', mr: 0.5, fontSize: 11 }}>{vi + 1}</Box>
+                        {v}
+                      </Typography>
+                    ))}
+                  </Box>
+                );
+              })}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 // ── Devotion Form Tab ──────────────────────────────────────────────────────
 function DevotionFormTab({ getReading }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -838,13 +934,24 @@ function DevotionFormTab({ getReading }) {
   const selectedDateStr = toDateStr(selectedDate);
   const todayReading = getReading(selectedDateStr);
 
+  const weekSuggestedBooks = useMemo(() => {
+    if (!todayReading) return [];
+    return todayReading.allReadings
+      .map(r => passageToSuggestedBook(r.passage))
+      .filter(Boolean);
+  }, [todayReading]);
+
   async function fetchDevotion() {
     setLoading(true);
     try {
       const data = await apiClient.get('/api/devotion', { date: selectedDateStr });
       if (data) {
+        const loadedPassages = Array.isArray(data.biblePassages) ? data.biblePassages : [];
+        // Use saved bibleRefs if present, otherwise convert from biblePassages for backward compat
+        const loadedRefs = data.bibleRefs || passagesToRefs(loadedPassages);
         setForm({
-          biblePassages: Array.isArray(data.biblePassages) ? data.biblePassages : [],
+          biblePassages: loadedPassages,
+          bibleRefs: loadedRefs,
           whatBibleTeaches: data.whatBibleTeaches || '',
           whatILearned: data.whatILearned || '',
           howToApply: data.howToApply || '',
@@ -871,18 +978,19 @@ function DevotionFormTab({ getReading }) {
   function addFromPlan() {
     if (!todayReading) return;
     const parts = todayReading.passage.split(' ');
-    const chapters = parts[parts.length - 1];
-    const book = parts.slice(0, -1).join(' ');
-    const [from, to] = chapters.split('-');
-    setForm(f => ({
-      ...f,
-      biblePassages: [...f.biblePassages, {
-        book,
-        chapter: from,
-        verseStart: '1',
-        verseEnd: to || from,
-      }],
-    }));
+    const chapterPart = parts[parts.length - 1];
+    const bookName = parts.slice(0, -1).join(' ');
+    const [from, to] = chapterPart.split('-');
+    // Build a ref string like "Giăng 3:1" (chapter-level, start at verse 1)
+    const newRef = to
+      ? `${bookName} ${from}:1`
+      : `${bookName} ${from}:1`;
+    setForm(f => {
+      const existing = f.bibleRefs ? f.bibleRefs.split('; ').filter(Boolean) : [];
+      if (existing.includes(newRef)) return f;
+      const updated = [...existing, newRef].join('; ');
+      return { ...f, bibleRefs: updated };
+    });
   }
 
   function removePassage(idx) {
@@ -899,7 +1007,13 @@ function DevotionFormTab({ getReading }) {
   async function handleSave() {
     setSaving(true);
     try {
-      await apiClient.post('/api/devotion', { ...form, date: selectedDateStr });
+      // Convert bibleRefs back to biblePassages for backward compat with API/DB
+      const derivedPassages = refsToPassages(form.bibleRefs || '');
+      await apiClient.post('/api/devotion', {
+        ...form,
+        biblePassages: derivedPassages,
+        date: selectedDateStr,
+      });
       setSnack('Đã lưu tĩnh nguyện!');
     } catch (err) { setSnack('Lỗi: ' + (err.message || 'Không thể lưu')); }
     finally { setSaving(false); }
@@ -939,39 +1053,20 @@ function DevotionFormTab({ getReading }) {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>Đoạn Kinh Thánh</Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {todayReading && (
-                    <Button size="small" variant="outlined" onClick={addFromPlan}>
-                      + Thêm từ lịch
-                    </Button>
-                  )}
-                  <Button startIcon={<IconPlus size={16} />} onClick={addPassage} size="small" variant="outlined">
-                    Thêm đoạn
+                {todayReading && (
+                  <Button size="small" variant="outlined" onClick={addFromPlan}>
+                    + Thêm từ lịch
                   </Button>
-                </Box>
+                )}
               </Box>
-              {form.biblePassages.length === 0 ? (
-                <Typography color="textSecondary" variant="body2">Chưa có đoạn Kinh Thánh nào</Typography>
-              ) : form.biblePassages.map((p, idx) => (
-                <Grid container spacing={1} key={idx} sx={{ mb: 1, alignItems: 'center' }}>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField label="Sách" value={p.book} onChange={e => updatePassage(idx, 'book', e.target.value)} fullWidth size="small" placeholder="Ví dụ: Giăng" />
-                  </Grid>
-                  <Grid size={{ xs: 4, sm: 2 }}>
-                    <TextField label="Chương" value={p.chapter} onChange={e => updatePassage(idx, 'chapter', e.target.value)} fullWidth size="small" />
-                  </Grid>
-                  <Grid size={{ xs: 4, sm: 2 }}>
-                    <TextField label="Câu đầu" value={p.verseStart} onChange={e => updatePassage(idx, 'verseStart', e.target.value)} fullWidth size="small" />
-                  </Grid>
-                  <Grid size={{ xs: 4, sm: 2 }}>
-                    <TextField label="Câu cuối" value={p.verseEnd} onChange={e => updatePassage(idx, 'verseEnd', e.target.value)} fullWidth size="small" />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {p.book && <Chip label={`${p.book} ${p.chapter}${p.verseStart ? ':' + p.verseStart : ''}${p.verseEnd ? '-' + p.verseEnd : ''}`} size="small" variant="outlined" />}
-                    <IconButton size="small" color="error" onClick={() => removePassage(idx)}><IconTrash size={14} /></IconButton>
-                  </Grid>
-                </Grid>
-              ))}
+              <BibleVerseSelector
+                value={form.bibleRefs || ''}
+                onChange={val => setForm(f => ({ ...f, bibleRefs: val }))}
+                label="Đoạn Kinh Thánh"
+                fullWidth
+                suggestedBooks={weekSuggestedBooks.length > 0 ? weekSuggestedBooks : undefined}
+              />
+              <BibleInlineReader refs={form.bibleRefs} />
             </CardContent>
           </Card>
 
