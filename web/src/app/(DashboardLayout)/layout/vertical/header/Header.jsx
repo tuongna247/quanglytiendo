@@ -8,25 +8,18 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { styled } from "@mui/material/styles";
 import config from '@/app/context/config'
 import { useContext } from "react";
-import { ProductProvider } from '@/app/context/Ecommercecontext/index'
 import { IconMenu2, IconMoon, IconSun } from "@tabler/icons-react";
-import Notifications from "./Notification";
 import Profile from "./Profile";
 import Search from "./Search";
-import Language from "./Language";
-import Navigation from "./Navigation";
-import MobileRightSidebar from "./MobileRightSidebar";
-import Cart from './Cart';
 import { CustomizerContext } from '@/app/context/customizerContext'
 
 const Header = () => {
   const lgUp = useMediaQuery((theme) => theme.breakpoints.up("lg"));
-  const lgDown = useMediaQuery((theme) => theme.breakpoints.down("lg"));
 
   const TopbarHeight = config.topbarHeight;
 
   // drawer
-  const { isSidebarHover, activeMode, setActiveMode, setIsCollapse, isCollapse, setIsSidebarHover, isMobileSidebar, setIsMobileSidebar } = useContext(CustomizerContext);
+  const { activeMode, setActiveMode, setIsCollapse, isCollapse, isMobileSidebar, setIsMobileSidebar } = useContext(CustomizerContext);
 
   const AppBarStyled = styled(AppBar)(({ theme }) => ({
     boxShadow: "none",
@@ -44,8 +37,7 @@ const Header = () => {
 
   return (
     (
-      <ProductProvider>
-        <AppBarStyled position="sticky" color="default">
+      <AppBarStyled position="sticky" color="default">
           <ToolbarStyled>
             {/* ------------------------------------------- */}
             {/* Toggle Button Sidebar */}
@@ -71,27 +63,11 @@ const Header = () => {
             {/* Search Dropdown */}
             {/* ------------------------------------------- */}
             <Search />
-            {lgUp ? (
-              <>
-                <Navigation />
-              </>
-            ) : null}
 
             <Box sx={{
               flexGrow: 1
             }} />
-            <Stack spacing={1} direction="row" sx={{
-              alignItems: "center"
-            }}>
-              <Language />
-              {/* ------------------------------------------- */}
-              {/* Ecommerce Dropdown */}
-              {/* ------------------------------------------- */}
-              <Cart />
-              {/* ------------------------------------------- */}
-              {/* End Ecommerce Dropdown */}
-              {/* ------------------------------------------- */}
-
+            <Stack spacing={1} direction="row" sx={{ alignItems: "center" }}>
               <IconButton size="large" color="inherit">
                 {activeMode === 'light' ? (
                   <IconMoon size="21" stroke="1.5" onClick={() => setActiveMode("dark")} />
@@ -99,17 +75,10 @@ const Header = () => {
                   <IconSun size="21" stroke="1.5" onClick={() => setActiveMode("light")} />
                 )}
               </IconButton>
-
-              <Notifications />
-              {/* ------------------------------------------- */}
-              {/* Toggle Right Sidebar for mobile */}
-              {/* ------------------------------------------- */}
-              {lgDown ? <MobileRightSidebar /> : null}
               <Profile />
             </Stack>
           </ToolbarStyled>
         </AppBarStyled>
-      </ProductProvider>
     )
   );
 };

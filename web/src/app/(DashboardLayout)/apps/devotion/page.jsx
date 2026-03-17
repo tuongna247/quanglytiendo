@@ -14,34 +14,19 @@ import FormControl from '@mui/material/FormControl';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import Checkbox from '@mui/material/Checkbox';
-import LinearProgress from '@mui/material/LinearProgress';
 import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
 import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Tooltip from '@mui/material/Tooltip';
-import { IconChevronLeft, IconChevronRight, IconPlus, IconTrash, IconBook, IconExternalLink, IconChevronDown, IconChevronUp, IconArrowsMaximize, IconArrowsMinimize, IconSettings } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconPlus, IconTrash, IconBook, IconExternalLink, IconChevronDown, IconChevronUp, IconArrowsMaximize, IconArrowsMinimize } from '@tabler/icons-react';
 import Link from 'next/link';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import BibleVerseSelector from '@/app/components/BibleVerseSelector';
 import apiClient from '@/app/lib/apiClient';
-import { BIBLE_READING_PLAN, DAY_LABELS, DAYS } from '@/app/lib/bibleReadingPlan';
+import { getReadingForDate } from '@/app/lib/bibleReadingPlan';
 import { bibleUrl, parsePassage, BOOK_ID_TO_NAME } from '@/app/lib/bibleUtils';
 import { BIBLE_BOOKS } from '@/app/lib/bibleData';
 
@@ -77,107 +62,6 @@ const MOODS = [
   { value: 'joyful', label: 'Vui mừng', color: 'primary' },
 ];
 
-// ── Plan generation data ───────────────────────────────────────────────────
-const BOOK_ORDER_GEN = [
-  'gn','ex','lv','nm','dt','js','jud','rt','1sm','2sm','1kgs','2kgs',
-  '1ch','2ch','ezr','ne','et','job','ps','prv','ec','so',
-  'is','jr','lm','ez','dn','ho','jl','am','ob','jn','mi','na','hk','zp','hg','zc','ml',
-  'mt','mk','lk','jo','act','rm','1co','2co','gl','eph','ph','cl',
-  '1ts','2ts','1tm','2tm','tt','phm','hb','jm','1pe','2pe','1jo','2jo','3jo','jd','re',
-];
-const CHAPTER_COUNTS = {
-  gn:50,ex:40,lv:27,nm:36,dt:34,js:24,jud:21,rt:4,
-  '1sm':31,'2sm':24,'1kgs':22,'2kgs':25,'1ch':29,'2ch':36,
-  ezr:10,ne:13,et:10,job:42,ps:150,prv:31,ec:12,so:8,
-  is:66,jr:52,lm:5,ez:48,dn:12,ho:14,jl:3,am:9,ob:1,
-  jn:4,mi:7,na:3,hk:3,zp:3,hg:2,zc:14,ml:4,
-  mt:28,mk:16,lk:24,jo:21,act:28,rm:16,'1co':16,'2co':13,
-  gl:6,eph:6,ph:4,cl:4,'1ts':5,'2ts':3,'1tm':6,'2tm':4,
-  tt:3,phm:1,hb:13,jm:5,'1pe':5,'2pe':3,'1jo':5,'2jo':1,'3jo':1,jd:1,re:22,
-};
-const DURATION_OPTIONS = [
-  { value: '3m',  label: '3 tháng',  days: 90  },
-  { value: '6m',  label: '6 tháng',  days: 182 },
-  { value: '9m',  label: '9 tháng',  days: 273 },
-  { value: '1y',  label: '1 năm',    days: 365 },
-  { value: '2y',  label: '2 năm',    days: 730 },
-];
-
-function formatChaptersAsPassage(chapters) {
-  if (!chapters.length) return '';
-  const groups = []; let g = [chapters[0]];
-  for (let i = 1; i < chapters.length; i++) {
-    const p = chapters[i - 1], c = chapters[i];
-    if (c.bookId === p.bookId && c.ch === p.ch + 1) { g.push(c); }
-    else { groups.push(g); g = [c]; }
-  }
-  groups.push(g);
-  return groups.map(gr => {
-    const name = BOOK_ID_TO_NAME[gr[0].bookId] || gr[0].bookId;
-    return gr.length === 1 ? `${name} ${gr[0].ch}` : `${name} ${gr[0].ch}-${gr[gr.length-1].ch}`;
-  }).join(' + ');
-}
-
-function generateSequentialPlan(startDateStr, durationKey) {
-  const dur = DURATION_OPTIONS.find(d => d.value === durationKey);
-  if (!dur) return [];
-  const totalDays = dur.days;
-  // Build full chapter list (1189 total)
-  const allCh = [];
-  for (const b of BOOK_ORDER_GEN) for (let c = 1; c <= CHAPTER_COUNTS[b]; c++) allCh.push({ bookId: b, ch: c });
-  // Distribute evenly (Bresenham)
-  const daily = [];
-  let acc = 0, idx = 0;
-  for (let d = 0; d < totalDays; d++) {
-    acc += allCh.length;
-    const n = Math.floor(acc / totalDays); acc %= totalDays;
-    daily.push(n > 0 ? formatChaptersAsPassage(allCh.slice(idx, idx + n)) : '');
-    idx += n;
-  }
-  // Align startDate to Sunday
-  const d0 = new Date(startDateStr + 'T12:00:00');
-  d0.setDate(d0.getDate() - d0.getDay());
-  const DKEYS = ['sun','mon','tue','wed','thu','fri','sat'];
-  const weeks = [];
-  for (let w = 0; w * 7 < totalDays; w++) {
-    const ws = new Date(d0); ws.setDate(d0.getDate() + w * 7);
-    const wo = { week: w + 1, startDate: toDateStr(ws) };
-    for (let d = 0; d < 7; d++) wo[DKEYS[d]] = daily[w * 7 + d] || '';
-    weeks.push(wo);
-  }
-  return weeks;
-}
-
-function getReadingFromPlan(plan, dateStr) {
-  const DKEYS = ['sun','mon','tue','wed','thu','fri','sat'];
-  const date = new Date(dateStr + 'T12:00:00');
-  const dayKey = DKEYS[date.getDay()];
-  const week = plan.find(w => {
-    const s = new Date(w.startDate + 'T00:00:00');
-    const e = new Date(s); e.setDate(s.getDate() + 7);
-    return date >= s && date < e;
-  });
-  if (!week || !week[dayKey]) return null;
-  return {
-    week: week.week, startDate: week.startDate, dayKey,
-    dayLabel: DAY_LABELS[dayKey],
-    passage: week[dayKey],
-    allReadings: DKEYS.map(d => ({ key: d, label: DAY_LABELS[d], passage: week[d] || '' })),
-  };
-}
-
-function usePlanConfig() {
-  const [config, setConfig] = useState(() => {
-    const def = { type: 'option1', duration: '1y', startDate: '', startWeekOverride: null, generatedPlan: null };
-    try { const r = localStorage.getItem('qlTD_plan_config'); return r ? { ...def, ...JSON.parse(r) } : def; }
-    catch { return def; }
-  });
-  function saveConfig(c) {
-    setConfig(c);
-    try { localStorage.setItem('qlTD_plan_config', JSON.stringify(c)); } catch {}
-  }
-  return { config, saveConfig };
-}
 
 // Fixed: use local date fields (not UTC toISOString) to avoid timezone offset in Vietnam (UTC+7)
 function toDateStr(d) {
@@ -268,308 +152,6 @@ function useBibleCompleted() {
     }
   }
   return { completed, toggle };
-}
-
-// ── Plan Setup Dialog ──────────────────────────────────────────────────────
-function PlanSetupDialog({ open, onClose, config, onSave }) {
-  const [type, setType] = useState(config.type || 'option1');
-  const [duration, setDuration] = useState(config.duration || '1y');
-  const [startDate, setStartDate] = useState(config.startDate || toDateStr(new Date()));
-  const [startWeek, setStartWeek] = useState(config.startWeekOverride ?? '');
-  const [generating, setGenerating] = useState(false);
-
-  const totalWeeks = type === 'option2'
-    ? Math.ceil((DURATION_OPTIONS.find(d => d.value === duration)?.days || 365) / 7)
-    : BIBLE_READING_PLAN.length;
-
-  function handleSave() {
-    setGenerating(true);
-    let newConfig = { type, duration, startDate, startWeekOverride: startWeek !== '' ? parseInt(startWeek) : null, generatedPlan: null };
-    if (type === 'option2') {
-      newConfig.generatedPlan = generateSequentialPlan(startDate, duration);
-    }
-    onSave(newConfig);
-    setGenerating(false);
-    onClose();
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>⚙️ Cài đặt lịch đọc Kinh Thánh</DialogTitle>
-      <DialogContent dividers>
-        {/* Plan type */}
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Chọn lịch đọc</Typography>
-        <RadioGroup value={type} onChange={e => setType(e.target.value)}>
-          <FormControlLabel
-            value="option1"
-            control={<Radio />}
-            label={
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>Lịch cố định 1 năm (52 tuần)</Typography>
-                <Typography variant="caption" color="textSecondary">Đọc theo chủ đề: Thư tín, Luật pháp, Lịch sử, Thi vịnh, Thế văn, Tiên tri, Phúc âm</Typography>
-              </Box>
-            }
-          />
-          <FormControlLabel
-            value="option2"
-            control={<Radio />}
-            label={
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>Đọc từ Sáng-thế-ký đến Khải-huyền</Typography>
-                <Typography variant="caption" color="textSecondary">Đọc tuần tự 1189 chương theo thời gian tự chọn</Typography>
-              </Box>
-            }
-          />
-        </RadioGroup>
-
-        {/* Option 2 settings */}
-        {type === 'option2' && (
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>Thời gian hoàn thành</InputLabel>
-              <Select value={duration} label="Thời gian hoàn thành" onChange={e => setDuration(e.target.value)}>
-                {DURATION_OPTIONS.map(d => (
-                  <MenuItem key={d.value} value={d.value}>
-                    {d.label} — {Math.round(1189 / d.days * 10) / 10} chương/ngày (~{Math.ceil(d.days / 7)} tuần)
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Ngày bắt đầu"
-              type="date"
-              size="small"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              helperText="Lịch sẽ được tạo từ ngày này"
-            />
-          </Box>
-        )}
-
-        {/* Start week override */}
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-            Bắt đầu từ tuần
-          </Typography>
-          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
-            Nếu bạn đã đọc xong một số tuần, đặt ở đây để hệ thống mặc định mở đúng tuần bạn đang đọc.
-          </Typography>
-          <TextField
-            size="small"
-            type="number"
-            label={`Tuần bắt đầu (1 – ${totalWeeks})`}
-            value={startWeek}
-            onChange={e => setStartWeek(e.target.value)}
-            inputProps={{ min: 1, max: totalWeeks }}
-            sx={{ width: 200 }}
-            helperText="Để trống = tự tính theo ngày hôm nay"
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Hủy</Button>
-        <Button variant="contained" onClick={handleSave} disabled={generating}>
-          {generating ? 'Đang tạo...' : 'Lưu & Áp dụng'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-// ── Bible Reading Plan Tab ─────────────────────────────────────────────────
-function BibleReadingPlanTab({ activePlan, planConfig, savePlanConfig, getReading }) {
-  const today = new Date();
-  const todayStr = toDateStr(today);
-  const todayReading = getReading(todayStr);
-  const currentWeek = planConfig.startWeekOverride ?? (todayReading?.week ?? 1);
-  const [viewWeek, setViewWeek] = useState(currentWeek);
-  const [setupOpen, setSetupOpen] = useState(false);
-  const { completed, toggle } = useBibleCompleted();
-
-  const totalWeeks = activePlan.length;
-  const weekData = activePlan.find(w => w.week === viewWeek);
-  const totalDays = planConfig.type === 'option2'
-    ? (DURATION_OPTIONS.find(d => d.value === planConfig.duration)?.days ?? 365)
-    : 365;
-  const totalDone = Object.keys(completed).length;
-  const isOption2 = planConfig.type === 'option2';
-
-  return (
-    <Box>
-      {/* Header row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {isOption2
-              ? `Đọc từ đầu đến cuối — ${DURATION_OPTIONS.find(d => d.value === planConfig.duration)?.label ?? ''}`
-              : 'Lịch cố định 52 tuần'}
-          </Typography>
-        </Box>
-        <Tooltip title="Cài đặt lịch đọc" arrow>
-          <IconButton size="small" onClick={() => setSetupOpen(true)}><IconSettings size={18} /></IconButton>
-        </Tooltip>
-      </Box>
-
-      {/* Progress bar */}
-      <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>Tiến độ đọc KT</Typography>
-          <Typography variant="body2" color="textSecondary">{totalDone}/{totalDays} ngày đã đọc</Typography>
-        </Box>
-        <LinearProgress variant="determinate" value={Math.min(100, totalDone / totalDays * 100)} sx={{ borderRadius: 1, height: 8 }} />
-      </Box>
-
-      {/* Today's reading highlight */}
-      {todayReading && (
-        <Alert severity="info" sx={{ mb: 2 }} icon={<IconBook size={20} />}
-          action={
-            <Button size="small" color="inherit" onClick={() => toggle(todayStr)}>
-              {completed[todayStr] ? '✓ Đã đọc' : 'Đánh dấu đã đọc'}
-            </Button>
-          }
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Hôm nay ({todayReading.dayLabel})
-          </Typography>
-          <Typography variant="h6" sx={{
-            fontWeight: 800,
-            textDecoration: completed[todayStr] ? 'line-through' : 'none',
-            color: completed[todayStr] ? 'success.main' : 'primary.main',
-          }}>
-            📖 {todayReading.passage}
-          </Typography>
-          <Typography variant="caption">Tuần {todayReading.week}</Typography>
-        </Alert>
-      )}
-
-      {/* Week navigation */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        <IconButton onClick={() => setViewWeek(w => Math.max(1, w - 1))} disabled={viewWeek === 1}>
-          <IconChevronLeft />
-        </IconButton>
-        <Typography variant="h6" sx={{ flex: 1, textAlign: 'center', fontWeight: 700 }}>
-          Tuần {viewWeek} {weekData ? `— ${new Date(weekData.startDate + 'T12:00:00').toLocaleDateString('vi-VN')}` : ''}
-        </Typography>
-        <IconButton onClick={() => setViewWeek(w => Math.min(totalWeeks, w + 1))} disabled={viewWeek === totalWeeks}>
-          <IconChevronRight />
-        </IconButton>
-        {viewWeek !== currentWeek && (
-          <Button size="small" variant="outlined" onClick={() => setViewWeek(currentWeek)}>
-            Tuần này
-          </Button>
-        )}
-      </Box>
-
-      {/* Week readings table */}
-      {weekData && (
-        <Card sx={{ borderRadius: 2 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'primary.light' }}>
-                <TableCell sx={{ fontWeight: 700, color: 'white' }}>Ngày</TableCell>
-                {!isOption2 && <TableCell sx={{ fontWeight: 700, color: 'white' }}>Loại</TableCell>}
-                <TableCell sx={{ fontWeight: 700, color: 'white' }}>Đoạn đọc</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'white', width: 64, textAlign: 'center' }}>Đã đọc</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {DAYS.map((dayKey, idx) => {
-                const weekStart = new Date(weekData.startDate + 'T12:00:00');
-                const dayDate = new Date(weekStart);
-                dayDate.setDate(weekStart.getDate() + idx);
-                const dateStr = toDateStr(dayDate);
-                const isToday = dateStr === todayStr;
-                const isDone = !!completed[dateStr];
-                const [dayName, category] = DAY_LABELS[dayKey].split(' — ');
-                const passage = weekData[dayKey] || '';
-                return (
-                  <TableRow
-                    key={dayKey}
-                    sx={{
-                      bgcolor: isDone ? 'success.50' : isToday ? 'primary.50' : 'inherit',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: isToday ? 700 : 400 }}>
-                        {dayName}
-                        {isToday && <Chip label="Hôm nay" size="small" color="primary" sx={{ ml: 1 }} />}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {dayDate.toLocaleDateString('vi-VN')}
-                      </Typography>
-                    </TableCell>
-                    {!isOption2 && (
-                      <TableCell><Chip label={category} size="small" variant="outlined" /></TableCell>
-                    )}
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body1" sx={{
-                          fontWeight: isToday ? 700 : 500,
-                          color: isDone ? 'success.main' : isToday ? 'primary.main' : 'inherit',
-                          textDecoration: isDone ? 'line-through' : 'none',
-                        }}>
-                          {passage ? `📖 ${passage}` : '—'}
-                        </Typography>
-                        {passage && bibleUrl(passage) && (
-                          <Link href={bibleUrl(passage)} passHref>
-                            <IconButton size="small" title="Đọc đoạn này">
-                              <IconExternalLink size={14} />
-                            </IconButton>
-                          </Link>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>
-                      <Checkbox checked={isDone} onChange={() => toggle(dateStr)} color="success" size="small" />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-
-      {/* Plan overview chips */}
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-          Tổng quan ({totalWeeks} tuần)
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {activePlan.map(w => {
-            const isCurrent = w.week === currentWeek;
-            const weekDone = DAYS.filter((_, idx) => {
-              const d = new Date(w.startDate + 'T12:00:00');
-              d.setDate(d.getDate() + idx);
-              return completed[toDateStr(d)];
-            }).length;
-            const allDone = weekDone === 7;
-            return (
-              <Chip
-                key={w.week}
-                label={allDone ? `T${w.week} ✓` : weekDone > 0 ? `T${w.week} ${weekDone}/7` : `T${w.week}`}
-                size="small"
-                color={isCurrent ? 'primary' : allDone ? 'success' : weekDone > 0 ? 'warning' : 'default'}
-                variant={isCurrent || allDone || weekDone > 0 ? 'filled' : 'outlined'}
-                onClick={() => setViewWeek(w.week)}
-                sx={{ cursor: 'pointer', fontSize: '0.7rem', minWidth: 36 }}
-              />
-            );
-          })}
-        </Box>
-      </Box>
-
-      {/* Plan setup dialog */}
-      <PlanSetupDialog
-        open={setupOpen}
-        onClose={() => setSetupOpen(false)}
-        config={planConfig}
-        onSave={newConfig => { savePlanConfig(newConfig); setViewWeek(newConfig.startWeekOverride ?? 1); }}
-      />
-    </Box>
-  );
 }
 
 // ── Bible text renderer (shared by inline + spotlight) ─────────────────────
@@ -947,16 +529,15 @@ function DevotionFormTab({ getReading }) {
       const data = await apiClient.get('/api/devotion', { date: selectedDateStr });
       if (data) {
         const loadedPassages = Array.isArray(data.biblePassages) ? data.biblePassages : [];
-        // Use saved bibleRefs if present, otherwise convert from biblePassages for backward compat
-        const loadedRefs = data.bibleRefs || passagesToRefs(loadedPassages);
+        const loadedRefs = data.bibleRefs || data.passages || passagesToRefs(loadedPassages);
         setForm({
           biblePassages: loadedPassages,
           bibleRefs: loadedRefs,
-          whatBibleTeaches: data.whatBibleTeaches || '',
-          whatILearned: data.whatILearned || '',
-          howToApply: data.howToApply || '',
+          whatBibleTeaches: data.whatBibleTeaches || data.bibleTeaches || '',
+          whatILearned: data.whatILearned || data.lessonLearned || '',
+          howToApply: data.howToApply || data.application || '',
           prayerPoints: data.prayerPoints || '',
-          memoryVerse: data.memoryVerse || '',
+          memoryVerse: data.memoryVerse || data.memorizeVerse || '',
           mood: data.mood || 'peaceful',
         });
       } else {
@@ -1010,9 +591,14 @@ function DevotionFormTab({ getReading }) {
       // Convert bibleRefs back to biblePassages for backward compat with API/DB
       const derivedPassages = refsToPassages(form.bibleRefs || '');
       await apiClient.post('/api/devotion', {
-        ...form,
-        biblePassages: derivedPassages,
         date: selectedDateStr,
+        bibleTeaches: form.whatBibleTeaches,
+        lessonLearned: form.whatILearned,
+        application: form.howToApply,
+        prayerPoints: form.prayerPoints,
+        memorizeVerse: form.memoryVerse,
+        mood: form.mood,
+        biblePassages: derivedPassages,
       });
       setSnack('Đã lưu tĩnh nguyện!');
     } catch (err) { setSnack('Lỗi: ' + (err.message || 'Không thể lưu')); }
@@ -1043,6 +629,15 @@ function DevotionFormTab({ getReading }) {
           toggle={toggle}
         />
       )}
+
+      {/* Link to reading plan */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Link href="/apps/bible?tab=1" passHref>
+          <Button size="small" variant="text" startIcon={<IconBook size={14} />} sx={{ color: 'text.secondary' }}>
+            Lịch đọc KT 1 năm →
+          </Button>
+        </Link>
+      </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
@@ -1111,34 +706,9 @@ function DevotionFormTab({ getReading }) {
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function DevotionPage() {
-  const [tab, setTab] = useState(0);
-  const { config: planConfig, saveConfig: savePlanConfig } = usePlanConfig();
-
-  const activePlan = planConfig.type === 'option2' && planConfig.generatedPlan?.length
-    ? planConfig.generatedPlan
-    : BIBLE_READING_PLAN;
-
-  function getReading(dateStr) {
-    return getReadingFromPlan(activePlan, dateStr);
-  }
-
   return (
-    <PageContainer title="Tĩnh nguyện" description="Tĩnh nguyện & Đọc Kinh Thánh 1 năm">
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="✍️ Tĩnh nguyện" />
-          <Tab label="📖 Lịch đọc KT 1 năm" />
-        </Tabs>
-      </Box>
-      {tab === 0 && <DevotionFormTab getReading={getReading} />}
-      {tab === 1 && (
-        <BibleReadingPlanTab
-          activePlan={activePlan}
-          planConfig={planConfig}
-          savePlanConfig={savePlanConfig}
-          getReading={getReading}
-        />
-      )}
+    <PageContainer title="Tĩnh nguyện" description="Tĩnh nguyện hằng ngày">
+      <DevotionFormTab getReading={getReadingForDate} />
     </PageContainer>
   );
 }
