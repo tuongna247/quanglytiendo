@@ -845,7 +845,7 @@ function EbookReader() {
   return (
     <Box ref={readerRef} sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#f5f0e8', position: 'relative', overflowX: 'hidden', ...(isFullscreen && { position: 'fixed', inset: 0, zIndex: 9999, height: '100vh' }) }}>
       {/* Top bar */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, height: 56, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', position: 'sticky', top: 0, zIndex: 1200, flexShrink: 0 }}>
+      <Box sx={{ display: isFullscreen ? 'none' : 'flex', alignItems: 'center', gap: 1, px: 2, height: 56, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', position: 'sticky', top: 0, zIndex: 1200, flexShrink: 0 }}>
         <IconButton size="small" onClick={() => setSidebarOpen(v => !v)} title={sidebarOpen ? 'Ẩn sidebar' : 'Mở sidebar'}>
           {sidebarOpen ? <IconLayoutSidebarLeftCollapse size={20} /> : <IconLayoutSidebarLeftExpand size={20} />}
         </IconButton>
@@ -898,11 +898,11 @@ function EbookReader() {
       </Box>
 
       {/* Progress bar strip */}
-      <LinearProgress variant="determinate" value={progress} sx={{ height: 3, flexShrink: 0 }} />
+      {!isFullscreen && <LinearProgress variant="determinate" value={progress} sx={{ height: 3, flexShrink: 0 }} />}
 
       <Box sx={{ display: 'flex', flex: 1 }}>
         {/* Sidebar */}
-        {sidebarOpen && (
+        {sidebarOpen && !isFullscreen && (
           <Box sx={{ width: 256, flexShrink: 0, bgcolor: 'background.paper', borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
             <EbookSidebarPanel
               bookmarks={bookmarks}
@@ -933,7 +933,7 @@ function EbookReader() {
             if (dx < 0) goToPage(currentPage + 1); // swipe left → next
             else goToPage(currentPage - 1);         // swipe right → prev
           }}
-          sx={{ flex: 1, overflow: 'auto', ...(isFullscreen && { height: 'calc(100vh - 62px)' }) }}
+          sx={{ flex: 1, overflow: 'auto', ...(isFullscreen && { height: '100vh' }) }}
         >
           <Box sx={{ maxWidth: 960, mx: 'auto', px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 4 } }}>
             {readerLoading && (
@@ -1047,6 +1047,23 @@ function EbookReader() {
           </Box>
         </Box>
       </Box>
+
+      {/* Exit fullscreen button — only shown in fullscreen */}
+      {isFullscreen && (
+        <Box
+          onClick={toggleFullscreen}
+          sx={{
+            position: 'absolute', top: 12, right: 12, zIndex: 1200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36, borderRadius: '50%',
+            bgcolor: 'rgba(0,0,0,0.3)', color: 'white', cursor: 'pointer',
+            opacity: 0, transition: 'opacity 0.2s',
+            '&:hover': { opacity: 1, bgcolor: 'rgba(0,0,0,0.6)' },
+          }}
+        >
+          <IconMinimize size={18} />
+        </Box>
+      )}
 
       {/* Floating prev/next arrows */}
       <Box
