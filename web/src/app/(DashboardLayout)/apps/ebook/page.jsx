@@ -771,8 +771,8 @@ function EbookReader() {
       const book = await ebookRepository.saveBook(null, title, pages);
       setSavedBooks(prev => [...prev, book]);
       setActiveBook(book);
-    } catch {
-      setError('Không thể đọc file. Hãy kiểm tra lại định dạng .docx hoặc .pdf');
+    } catch (e) {
+      setError(`Không thể đọc file: ${e?.message || 'Hãy kiểm tra lại định dạng .docx hoặc .pdf'}`);
     } finally {
       setUploading(false);
     }

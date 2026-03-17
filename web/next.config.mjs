@@ -4,6 +4,16 @@ const nextConfig = {
   reactStrictMode: false,
   images: { unoptimized: true },
   output: 'standalone',
+  experimental: {
+    optimizePackageImports: [
+      '@tabler/icons-react',
+      '@mui/icons-material',
+      '@mui/material',
+      '@mui/lab',
+      'date-fns',
+      'lodash',
+    ],
+  },
   async rewrites() {
     return [
       {

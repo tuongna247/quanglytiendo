@@ -15,7 +15,8 @@ COPY . .
 ARG API_URL=http://api:5015
 ENV API_URL=$API_URL
 
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 # Runtime stage
 FROM node:20-alpine AS runtime
