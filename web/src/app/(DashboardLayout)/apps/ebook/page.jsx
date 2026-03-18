@@ -430,7 +430,7 @@ function EbookSidebarPanel({ bookmarks, comments, currentPage, onGoToPage, onDel
 }
 
 // ── UploadPage ────────────────────────────────────────────────────────────────
-function UploadPage({ books, onUpload, onOpenBook, onDeleteBook, loading }) {
+function UploadPage({ books, onUpload, onOpenBook, onDeleteBook, loading, loadingBookId, openError }) {
   const [dragging, setDragging] = useState(false);
 
   const handleFile = useCallback((file) => {
@@ -510,46 +510,63 @@ function UploadPage({ books, onUpload, onOpenBook, onDeleteBook, loading }) {
           )}
         </Box>
 
+        {/* Open error */}
+        {openError && (
+          <Alert severity="error" sx={{ mt: 2 }} onClose={() => {}}>
+            {openError}
+          </Alert>
+        )}
+
         {/* Saved books */}
         {books.length > 0 && (
           <Box sx={{ mt: 4 }}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>Sách đã lưu</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {books.map(book => (
-                <Card
-                  key={book.id}
-                  variant="outlined"
-                  onClick={() => onOpenBook(book)}
-                  sx={{
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    '&:hover': { borderColor: 'primary.main', boxShadow: 1 },
-                    '&:hover .book-delete': { opacity: 1 },
-                    '.book-delete': { opacity: 0, transition: 'opacity 0.15s' },
-                  }}
-                >
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: '12px !important' }}>
-                    <Box sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'primary.lighter', borderRadius: 1.5, flexShrink: 0 }}>
-                      <IconBook size={18} color="#1976D2" />
-                    </Box>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={500} noWrap>{book.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {book.totalPages} trang · {new Date(book.uploadedAt).toLocaleDateString('vi-VN')}
-                      </Typography>
-                    </Box>
-                    <IconButton
-                      className="book-delete"
-                      size="small"
-                      onClick={e => { e.stopPropagation(); onDeleteBook(book.id); }}
-                      sx={{ color: 'error.main' }}
-                      title="Xóa sách"
-                    >
-                      <IconTrash size={15} />
-                    </IconButton>
-                  </CardContent>
-                </Card>
-              ))}
+              {books.map(book => {
+                const isLoading = loadingBookId === book.id;
+                return (
+                  <Card
+                    key={book.id}
+                    variant="outlined"
+                    onClick={() => !isLoading && onOpenBook(book)}
+                    sx={{
+                      cursor: isLoading ? 'default' : 'pointer',
+                      transition: 'all 0.15s',
+                      opacity: loadingBookId && !isLoading ? 0.5 : 1,
+                      borderColor: isLoading ? 'primary.main' : undefined,
+                      '&:hover': { borderColor: isLoading ? 'primary.main' : 'primary.main', boxShadow: 1 },
+                      '&:hover .book-delete': { opacity: 1 },
+                      '.book-delete': { opacity: 0, transition: 'opacity 0.15s' },
+                    }}
+                  >
+                    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: '12px !important' }}>
+                      <Box sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: isLoading ? 'primary.main' : 'primary.lighter', borderRadius: 1.5, flexShrink: 0 }}>
+                        {isLoading
+                          ? <CircularProgress size={18} sx={{ color: 'white' }} />
+                          : <IconBook size={18} color="#1976D2" />
+                        }
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={500} noWrap>{book.title}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {isLoading ? 'Đang tải...' : `${book.totalPages} trang · ${new Date(book.uploadedAt).toLocaleDateString('vi-VN')}`}
+                        </Typography>
+                      </Box>
+                      {!isLoading && (
+                        <IconButton
+                          className="book-delete"
+                          size="small"
+                          onClick={e => { e.stopPropagation(); onDeleteBook(book.id); }}
+                          sx={{ color: 'error.main' }}
+                          title="Xóa sách"
+                        >
+                          <IconTrash size={15} />
+                        </IconButton>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </Box>
           </Box>
         )}
@@ -597,6 +614,8 @@ function EbookReader() {
 
   // Books list
   const [savedBooks, setSavedBooks] = useState([]);
+  const [loadingBookId, setLoadingBookId] = useState(null);
+  const [openBookError, setOpenBookError] = useState(null);
 
   useEffect(() => {
     ebookRepository.getBooks().then(books => setSavedBooks(books || [])).catch(() => {});
@@ -817,11 +836,16 @@ function EbookReader() {
     if (bookOrMeta.pages) {
       setActiveBook(bookOrMeta);
     } else {
+      setLoadingBookId(bookOrMeta.id);
+      setOpenBookError(null);
       try {
         const full = await ebookRepository.getBook(bookOrMeta.id);
+        if (!full) throw new Error('Không tìm thấy sách.');
         setActiveBook(full);
-      } catch {
-        setError('Không thể tải sách.');
+      } catch (e) {
+        setOpenBookError(e?.message || 'Không thể tải sách. Vui lòng thử lại.');
+      } finally {
+        setLoadingBookId(null);
       }
     }
   }, []);
@@ -835,6 +859,8 @@ function EbookReader() {
         onOpenBook={handleOpenBook}
         onDeleteBook={handleDeleteBook}
         loading={uploading}
+        loadingBookId={loadingBookId}
+        openError={openBookError}
       />
     );
   }
