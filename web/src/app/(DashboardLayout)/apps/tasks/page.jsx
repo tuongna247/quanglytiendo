@@ -25,12 +25,19 @@ import MenuItem from '@mui/material/MenuItem';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import Fab from '@mui/material/Fab';
-import { IconPlus, IconEdit, IconTrash, IconX } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconX, IconDownload, IconUpload } from '@tabler/icons-react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
+import Divider from '@mui/material/Divider';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
+import {
+  downloadJSON, downloadCSV, readJSONFile, readCSVFile,
+  TASK_COLUMNS, stripServerFields, validateTasks,
+} from '@/app/lib/exportImport';
 
 const PRIORITIES = [
   { value: 'low', label: 'Thấp', color: 'success' },
@@ -83,6 +90,10 @@ export default function TasksPage() {
   const [saving, setSaving] = useState(false);
   const [stepInput, setStepInput] = useState('');
   const [error, setError] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState(null); // { rows, errors }
+  const [importProgress, setImportProgress] = useState(0);
+  const [importDone, setImportDone] = useState(false);
 
   async function fetchTasks() {
     setLoading(true);
@@ -145,6 +156,50 @@ export default function TasksPage() {
     setStepInput('');
   }
 
+  function handleExportJSON() {
+    downloadJSON(stripServerFields(tasks, TASK_COLUMNS), `tasks_${new Date().toISOString().split('T')[0]}.json`);
+  }
+  function handleExportCSV() {
+    downloadCSV(stripServerFields(tasks, TASK_COLUMNS), TASK_COLUMNS, `tasks_${new Date().toISOString().split('T')[0]}.csv`);
+  }
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = file.name.endsWith('.csv') ? await readCSVFile(file) : await readJSONFile(file);
+      const errors = validateTasks(rows);
+      setImportPreview({ rows, errors });
+      setImportProgress(0);
+      setImportDone(false);
+    } catch (err) { setError(err.message); }
+    e.target.value = '';
+  }
+  async function handleImportConfirm() {
+    if (!importPreview?.rows?.length) return;
+    const rows = importPreview.rows;
+    setImportProgress(1);
+    let done = 0;
+    for (const row of rows) {
+      try {
+        await apiClient.post('/api/tasks', {
+          title: row.title || '',
+          description: row.description || '',
+          status: row.status || 'todo',
+          priority: row.priority || 'medium',
+          category: row.category || '',
+          dueDate: row.dueDate || null,
+          steps: typeof row.steps === 'string' ? row.steps : JSON.stringify(row.steps || []),
+          tags: typeof row.tags === 'string' ? row.tags : JSON.stringify(row.tags || []),
+        });
+      } catch { /* skip invalid rows */ }
+      done++;
+      setImportProgress(Math.round((done / rows.length) * 100));
+    }
+    setImportDone(true);
+    setImportPreview(null);
+    await fetchTasks();
+  }
+
   function removeStep(idx) {
     setForm(f => ({ ...f, steps: f.steps.filter((_, i) => i !== idx) }));
   }
@@ -156,10 +211,67 @@ export default function TasksPage() {
           <Tab label="Danh sách" />
           <Tab label="Kanban" />
         </Tabs>
+        <Tooltip title="Xuất / Nhập dữ liệu">
+          <IconButton onClick={() => { setExportOpen(true); setImportPreview(null); setImportProgress(0); setImportDone(false); }} sx={{ mr: 1 }}>
+            <IconDownload size={20} />
+          </IconButton>
+        </Tooltip>
         <Button variant="contained" startIcon={<IconPlus size={16} />} onClick={openAdd} sx={{ mr: 1 }}>
           Thêm mới
         </Button>
       </Box>
+
+      {/* Export/Import Dialog */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Xuất / Nhập Công việc</DialogTitle>
+        <DialogContent>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Xuất dữ liệu ({tasks.length} công việc)</Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Button size="small" variant="outlined" startIcon={<IconDownload size={15} />} onClick={handleExportJSON}>JSON</Button>
+            <Button size="small" variant="outlined" startIcon={<IconDownload size={15} />} onClick={handleExportCSV}>CSV (Excel)</Button>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Nhập dữ liệu</Typography>
+          <Button component="label" size="small" variant="outlined" startIcon={<IconUpload size={15} />}>
+            Chọn file (.json, .csv)
+            <input type="file" accept=".json,.csv" hidden onChange={handleImportFile} />
+          </Button>
+
+          {importPreview && (
+            <Box sx={{ mt: 2 }}>
+              {importPreview.errors.length > 0 ? (
+                <Alert severity="warning" sx={{ mb: 1 }}>
+                  <Typography variant="body2" fontWeight={600}>Có {importPreview.errors.length} lỗi:</Typography>
+                  {importPreview.errors.slice(0, 5).map((e, i) => <Typography key={i} variant="caption" display="block">{e}</Typography>)}
+                </Alert>
+              ) : (
+                <Alert severity="info" sx={{ mb: 1 }}>Tìm thấy {importPreview.rows.length} bản ghi hợp lệ.</Alert>
+              )}
+              <Button
+                variant="contained"
+                size="small"
+                disabled={importPreview.errors.length > 0 || importProgress > 0}
+                onClick={handleImportConfirm}
+              >
+                Nhập tất cả
+              </Button>
+            </Box>
+          )}
+
+          {importProgress > 0 && !importDone && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption">Đang nhập... {importProgress}%</Typography>
+              <LinearProgress variant="determinate" value={importProgress} sx={{ mt: 0.5 }} />
+            </Box>
+          )}
+          {importDone && <Alert severity="success" sx={{ mt: 2 }}>Nhập xong!</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportOpen(false)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
 
       {tab === 0 && (
         <Card sx={{ borderRadius: 2 }}>

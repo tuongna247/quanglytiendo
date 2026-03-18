@@ -27,12 +27,16 @@ import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import Tooltip from '@mui/material/Tooltip';
-import { IconPlus, IconTrash, IconEdit, IconPlayerPlay, IconCheck, IconHistory } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconEdit, IconPlayerPlay, IconCheck, IconHistory, IconDownload, IconUpload } from '@tabler/icons-react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
+import {
+  downloadJSON, downloadCSV, readJSONFile, readCSVFile,
+  TRANSACTION_COLUMNS, stripServerFields, validateTransactions,
+} from '@/app/lib/exportImport';
 
 const PERIOD_TABS = ['Ngày', 'Tuần', 'Tháng', 'Năm'];
 const INCOME_CATS = ['Lương', 'Thưởng', 'Đầu tư', 'Quà tặng', 'Khác'];
@@ -345,6 +349,10 @@ export default function FinancePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState(null); // { rows, errors }
+  const [importProgress, setImportProgress] = useState(0);
+  const [importDone, setImportDone] = useState(false);
 
   const isFixedTab = periodTab === 4;
 
@@ -383,6 +391,50 @@ export default function FinancePage() {
       await apiClient.delete(`/api/transactions/${id}`);
       await fetchTransactions();
     } catch (err) { setError(err.message || 'Lỗi khi xóa'); }
+  }
+
+  async function handleExportJSON() {
+    try {
+      const now = new Date();
+      const data = await apiClient.get('/api/transactions', { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` });
+      downloadJSON(stripServerFields(data, TRANSACTION_COLUMNS), `transactions_${now.getFullYear()}.json`);
+    } catch (e) { setError(e.message); }
+  }
+
+  async function handleExportCSV() {
+    try {
+      const now = new Date();
+      const data = await apiClient.get('/api/transactions', { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` });
+      downloadCSV(stripServerFields(data, TRANSACTION_COLUMNS), TRANSACTION_COLUMNS, `transactions_${now.getFullYear()}.csv`);
+    } catch (e) { setError(e.message); }
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = file.name.endsWith('.csv') ? await readCSVFile(file) : await readJSONFile(file);
+      const errors = validateTransactions(rows);
+      setImportPreview({ rows, errors });
+      setImportProgress(0);
+      setImportDone(false);
+    } catch (err) { setError(err.message); }
+    e.target.value = '';
+  }
+
+  async function handleImportConfirm() {
+    if (!importPreview?.rows?.length) return;
+    const rows = importPreview.rows;
+    setImportProgress(0);
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        await apiClient.post('/api/transactions', { ...rows[i], amount: parseFloat(rows[i].amount) });
+      } catch { /* skip invalid rows */ }
+      setImportProgress(Math.round(((i + 1) / rows.length) * 100));
+    }
+    setImportDone(true);
+    setImportPreview(null);
+    await fetchTransactions();
   }
 
   return (
@@ -424,9 +476,16 @@ export default function FinancePage() {
           <Tab label="Cố định" />
         </Tabs>
         {!isFixedTab && (
-          <Button variant="contained" startIcon={<IconPlus size={16} />} onClick={() => setDialogOpen(true)} sx={{ mr: 1 }}>
-            Thêm mới
-          </Button>
+          <>
+            <Tooltip title="Xuất / Nhập dữ liệu">
+              <IconButton onClick={() => { setExportOpen(true); setImportPreview(null); setImportDone(false); }} sx={{ mr: 0.5 }}>
+                <IconDownload size={20} />
+              </IconButton>
+            </Tooltip>
+            <Button variant="contained" startIcon={<IconPlus size={16} />} onClick={() => setDialogOpen(true)} sx={{ mr: 1 }}>
+              Thêm mới
+            </Button>
+          </>
         )}
       </Box>
 
@@ -511,6 +570,47 @@ export default function FinancePage() {
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.amount || !form.category}>
             {saving ? 'Đang lưu...' : 'Lưu'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Export / Import dialog */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Xuất / Nhập giao dịch</DialogTitle>
+        <DialogContent>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Xuất dữ liệu (cả năm hiện tại)</Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+            <Button variant="outlined" startIcon={<IconDownload size={16} />} onClick={handleExportJSON}>Xuất JSON</Button>
+            <Button variant="outlined" startIcon={<IconDownload size={16} />} onClick={handleExportCSV}>Xuất CSV</Button>
+          </Box>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Nhập dữ liệu</Typography>
+          <Button component="label" variant="outlined" startIcon={<IconUpload size={16} />}>
+            Chọn file JSON / CSV
+            <input type="file" accept=".json,.csv" hidden onChange={handleImportFile} />
+          </Button>
+          {importPreview && (
+            <Box sx={{ mt: 2 }}>
+              {importPreview.errors.length > 0 ? (
+                <Alert severity="error" sx={{ mb: 1 }}>
+                  {importPreview.errors.map((e, i) => <div key={i}>{e}</div>)}
+                </Alert>
+              ) : (
+                <Alert severity="info">Tìm thấy {importPreview.rows.length} giao dịch. Nhấn Nhập để thêm vào.</Alert>
+              )}
+            </Box>
+          )}
+          {importProgress > 0 && !importDone && (
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress variant="determinate" value={importProgress} />
+              <Typography variant="caption">{importProgress}%</Typography>
+            </Box>
+          )}
+          {importDone && <Alert severity="success" sx={{ mt: 2 }}>Nhập dữ liệu thành công!</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportOpen(false)}>Đóng</Button>
+          {importPreview && importPreview.errors.length === 0 && (
+            <Button variant="contained" onClick={handleImportConfirm}>Nhập</Button>
+          )}
         </DialogActions>
       </Dialog>
 

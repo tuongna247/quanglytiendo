@@ -24,10 +24,16 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
-import { IconChevronLeft, IconChevronRight, IconTrash, IconPlus } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconTrash, IconPlus, IconDownload, IconUpload } from '@tabler/icons-react';
+import Tooltip from '@mui/material/Tooltip';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
+import {
+  downloadJSON, readJSONFile, readCSVFile,
+  CALENDAR_COLUMNS, stripServerFields, validateCalendar,
+} from '@/app/lib/exportImport';
 
 const VI_MONTHS = [
   'Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
@@ -531,6 +537,10 @@ export default function CalendarPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importDone, setImportDone] = useState(false);
 
   // Compute fetch range based on view
   function getFetchRange() {
@@ -670,6 +680,48 @@ export default function CalendarPage() {
     openAddForDate(d);
   }
 
+  async function handleExportJSON() {
+    try {
+      const now = new Date();
+      const from = `${now.getFullYear()}-01-01T00:00:00`;
+      const to = `${now.getFullYear()}-12-31T23:59:59`;
+      const data = await apiClient.get('/api/calendar-events', { from, to });
+      const raw = Array.isArray(data) ? data : [];
+      downloadJSON(stripServerFields(raw, CALENDAR_COLUMNS), `calendar_${now.getFullYear()}.json`);
+    } catch (e) { setError(e.message); }
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const rows = file.name.endsWith('.csv') ? await readCSVFile(file) : await readJSONFile(file);
+      const errors = validateCalendar(rows);
+      setImportPreview({ rows, errors });
+      setImportProgress(0);
+      setImportDone(false);
+    } catch (err) { setError(err.message); }
+    e.target.value = '';
+  }
+
+  async function handleImportConfirm() {
+    if (!importPreview?.rows?.length) return;
+    const rows = importPreview.rows;
+    setImportProgress(0);
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        await apiClient.post('/api/calendar-events', {
+          ...rows[i],
+          allDay: rows[i].allDay === 'true' || rows[i].allDay === true,
+        });
+      } catch { /* skip */ }
+      setImportProgress(Math.round(((i + 1) / rows.length) * 100));
+    }
+    setImportDone(true);
+    setImportPreview(null);
+    await fetchEvents();
+  }
+
   return (
     <PageContainer title="Lịch" description="Quản lý lịch sự kiện">
       {/* Header */}
@@ -694,6 +746,11 @@ export default function CalendarPage() {
           <Button variant="contained" size="small" startIcon={<IconPlus size={16} />} onClick={() => openAddForDate(currentDate)}>
             Thêm sự kiện
           </Button>
+          <Tooltip title="Xuất / Nhập dữ liệu">
+            <IconButton size="small" onClick={() => { setExportOpen(true); setImportPreview(null); setImportDone(false); }}>
+              <IconDownload size={18} />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -778,6 +835,44 @@ export default function CalendarPage() {
           <Button variant="contained" onClick={handleSave} disabled={saving || !form.title.trim()}>
             {saving ? 'Đang lưu...' : 'Lưu'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Export / Import dialog */}
+      <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Xuất / Nhập lịch</DialogTitle>
+        <DialogContent>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Xuất dữ liệu (cả năm hiện tại)</Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+            <Button variant="outlined" startIcon={<IconDownload size={16} />} onClick={handleExportJSON}>Xuất JSON</Button>
+          </Box>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Nhập dữ liệu</Typography>
+          <Button component="label" variant="outlined" startIcon={<IconUpload size={16} />}>
+            Chọn file JSON / CSV
+            <input type="file" accept=".json,.csv" hidden onChange={handleImportFile} />
+          </Button>
+          {importPreview && (
+            <Box sx={{ mt: 2 }}>
+              {importPreview.errors.length > 0 ? (
+                <Alert severity="error">{importPreview.errors.map((e, i) => <div key={i}>{e}</div>)}</Alert>
+              ) : (
+                <Alert severity="info">Tìm thấy {importPreview.rows.length} sự kiện. Nhấn Nhập để thêm.</Alert>
+              )}
+            </Box>
+          )}
+          {importProgress > 0 && !importDone && (
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress variant="determinate" value={importProgress} />
+              <Typography variant="caption">{importProgress}%</Typography>
+            </Box>
+          )}
+          {importDone && <Alert severity="success" sx={{ mt: 2 }}>Nhập dữ liệu thành công!</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportOpen(false)}>Đóng</Button>
+          {importPreview && importPreview.errors.length === 0 && (
+            <Button variant="contained" onClick={handleImportConfirm}>Nhập</Button>
+          )}
         </DialogActions>
       </Dialog>
 

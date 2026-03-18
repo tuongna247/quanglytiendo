@@ -20,6 +20,17 @@ public class PlannerController : ControllerBase
         _db = db;
     }
 
+    [HttpGet("range")]
+    public async Task<IActionResult> GetRange([FromQuery] string from, [FromQuery] string to)
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var items = await _db.PlannerItems
+            .Where(p => p.UserId == userId && string.Compare(p.Date, from) >= 0 && string.Compare(p.Date, to) <= 0)
+            .OrderBy(p => p.Date).ThenBy(p => p.Order)
+            .ToListAsync();
+        return Ok(items.Select(MapToDto));
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetByDate([FromQuery] string date)
     {
