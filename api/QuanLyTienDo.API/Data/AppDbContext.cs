@@ -31,6 +31,8 @@ public class AppDbContext : DbContext
     public DbSet<EbookComment> EbookComments => Set<EbookComment>();
     public DbSet<EbookBookmark> EbookBookmarks => Set<EbookBookmark>();
     public DbSet<EbookProgress> EbookProgresses => Set<EbookProgress>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<UserShareSettings> UserShareSettings => Set<UserShareSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -341,6 +343,38 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Book)
              .WithMany(b => b.Progresses)
              .HasForeignKey(x => x.BookId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Friendship ───────────────────────────────────────────────────────────
+        modelBuilder.Entity<Friendship>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasIndex(x => new { x.RequesterId, x.AddresseeId }).IsUnique();
+            // Restrict to avoid multiple cascade paths (SQL Server limitation)
+            e.HasOne(x => x.Requester)
+             .WithMany()
+             .HasForeignKey(x => x.RequesterId)
+             .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Addressee)
+             .WithMany()
+             .HasForeignKey(x => x.AddresseeId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── UserShareSettings ────────────────────────────────────────────────────
+        modelBuilder.Entity<UserShareSettings>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasOne(x => x.User)
+             .WithOne()
+             .HasForeignKey<UserShareSettings>(x => x.UserId)
              .OnDelete(DeleteBehavior.Cascade);
         });
     }

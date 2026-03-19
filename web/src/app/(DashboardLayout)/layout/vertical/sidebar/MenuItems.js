@@ -12,6 +12,7 @@ import {
   IconBook2,
   IconBible,
   IconSettings,
+  IconUsers,
 } from '@tabler/icons-react';
 
 const Menuitems = [
@@ -91,6 +92,18 @@ const Menuitems = [
     title: 'Đọc Sách',
     icon: IconBook2,
     href: '/apps/ebook',
+  },
+
+  // ── Xã Hội ───────────────────────────────────────────────────────────────
+  {
+    navlabel: true,
+    subheader: 'Xã Hội',
+  },
+  {
+    id: uniqueId(),
+    title: 'Bạn bè',
+    icon: IconUsers,
+    href: '/apps/friends',
   },
 
   // ── Cài đặt ──────────────────────────────────────────────────────────────

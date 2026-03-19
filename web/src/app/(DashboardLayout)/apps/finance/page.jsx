@@ -37,6 +37,7 @@ import {
   downloadJSON, downloadCSV, readJSONFile, readCSVFile,
   TRANSACTION_COLUMNS, stripServerFields, validateTransactions,
 } from '@/app/lib/exportImport';
+import FriendSelector from '@/app/components/apps/friends/FriendSelector';
 
 const PERIOD_TABS = ['Ngày', 'Tuần', 'Tháng', 'Năm'];
 const INCOME_CATS = ['Lương', 'Thưởng', 'Đầu tư', 'Quà tặng', 'Khác'];
@@ -353,6 +354,14 @@ export default function FinancePage() {
   const [importPreview, setImportPreview] = useState(null); // { rows, errors }
   const [importProgress, setImportProgress] = useState(0);
   const [importDone, setImportDone] = useState(false);
+  const [friendUserId, setFriendUserId] = useState(null);
+  const [friendSummary, setFriendSummary] = useState(null);
+  const [friendShared, setFriendShared] = useState(true);
+  const [loadingFriend, setLoadingFriend] = useState(false);
+  const [friendMonth, setFriendMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const isFixedTab = periodTab === 4;
 
@@ -391,6 +400,17 @@ export default function FinancePage() {
       await apiClient.delete(`/api/transactions/${id}`);
       await fetchTransactions();
     } catch (err) { setError(err.message || 'Lỗi khi xóa'); }
+  }
+
+  async function loadFriendSummary(userId, month) {
+    if (!userId) { setFriendSummary(null); return; }
+    setLoadingFriend(true);
+    try {
+      const data = await apiClient.get(`/api/friends/${userId}/finance-summary`, { month });
+      setFriendShared(data.shared);
+      setFriendSummary(data.summary || null);
+    } catch { setFriendSummary(null); }
+    finally { setLoadingFriend(false); }
   }
 
   async function handleExportJSON() {
@@ -440,7 +460,7 @@ export default function FinancePage() {
   return (
     <PageContainer title="Tài chính" description="Quản lý thu chi">
       {/* Summary cards — only show on period tabs */}
-      {!isFixedTab && (
+      {!isFixedTab && periodTab !== 5 && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
@@ -471,11 +491,12 @@ export default function FinancePage() {
 
       {/* Tabs */}
       <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs value={periodTab} onChange={(_, v) => setPeriodTab(v)} sx={{ flex: 1 }}>
+        <Tabs value={periodTab} onChange={(_, v) => { setPeriodTab(v); if (v !== 5) setFriendUserId(null); }} sx={{ flex: 1 }}>
           {PERIOD_TABS.map((t, i) => <Tab key={i} label={t} />)}
           <Tab label="Cố định" />
+          <Tab label="Bạn bè" />
         </Tabs>
-        {!isFixedTab && (
+        {!isFixedTab && periodTab !== 5 && (
           <>
             <Tooltip title="Xuất / Nhập dữ liệu">
               <IconButton onClick={() => { setExportOpen(true); setImportPreview(null); setImportDone(false); }} sx={{ mr: 0.5 }}>
@@ -489,10 +510,96 @@ export default function FinancePage() {
         )}
       </Box>
 
+      {/* Friend finance summary tab */}
+      {periodTab === 5 && (
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+            <FriendSelector
+              value={friendUserId}
+              onChange={(uid) => { setFriendUserId(uid); loadFriendSummary(uid, friendMonth); }}
+              label="Chọn bạn bè"
+            />
+            <input
+              type="month"
+              value={friendMonth}
+              onChange={e => { setFriendMonth(e.target.value); loadFriendSummary(friendUserId, e.target.value); }}
+              style={{ padding: '6px 12px', borderRadius: 4, border: '1px solid #ccc', fontSize: 14 }}
+            />
+          </Box>
+          {!friendUserId && (
+            <Typography color="textSecondary" align="center" sx={{ py: 4 }}>Chọn bạn bè để xem tóm tắt tài chính</Typography>
+          )}
+          {friendUserId && loadingFriend && (
+            <Typography align="center" sx={{ py: 4 }}>Đang tải...</Typography>
+          )}
+          {friendUserId && !loadingFriend && !friendShared && (
+            <Alert severity="info">Bạn bè này chưa bật chia sẻ Tài chính.</Alert>
+          )}
+          {friendUserId && !loadingFriend && friendShared && friendSummary && (
+            <>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="textSecondary">Thu nhập</Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{formatVND(friendSummary.totalIncome)}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'error.main' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="textSecondary">Chi tiêu</Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>{formatVND(friendSummary.totalExpense)}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: friendSummary.balance >= 0 ? 'primary.main' : 'warning.main' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="textSecondary">Số dư</Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 700, color: friendSummary.balance >= 0 ? 'primary.main' : 'warning.main' }}>{formatVND(friendSummary.balance)}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Card sx={{ borderRadius: 2 }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'success.main' }}>Thu nhập theo danh mục</Typography>
+                      {friendSummary.incomeByCategory.map(c => (
+                        <Box key={c.category} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="body2">{c.category}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>{formatVND(c.amount)}</Typography>
+                        </Box>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Card sx={{ borderRadius: 2 }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'error.main' }}>Chi tiêu theo danh mục</Typography>
+                      {friendSummary.expenseByCategory.map(c => (
+                        <Box key={c.category} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="body2">{c.category}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>{formatVND(c.amount)}</Typography>
+                        </Box>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </>
+          )}
+        </Box>
+      )}
+
       {/* Fixed expenses tab */}
-      {isFixedTab ? (
+      {periodTab === 4 ? (
         <FixedExpensesTab setError={setError} setSuccess={setSuccess} />
-      ) : (
+      ) : periodTab !== 5 ? (
         /* Transaction list */
         <Card sx={{ borderRadius: 2 }}>
           <CardContent sx={{ p: 0 }}>
@@ -530,7 +637,7 @@ export default function FinancePage() {
             </Table>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* Add transaction dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>

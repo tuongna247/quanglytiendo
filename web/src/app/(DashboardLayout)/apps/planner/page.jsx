@@ -29,6 +29,7 @@ import {
   downloadJSON, downloadCSV, readJSONFile, readCSVFile,
   PLANNER_COLUMNS, stripServerFields, validatePlanner,
 } from '@/app/lib/exportImport';
+import FriendSelector from '@/app/components/apps/friends/FriendSelector';
 
 const PRIORITIES = [
   { value: 'low', label: 'Thấp', color: 'success' },
@@ -62,6 +63,11 @@ export default function PlannerPage() {
   const [importPreview, setImportPreview] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importDone, setImportDone] = useState(false);
+  const [viewMode, setViewMode] = useState('mine'); // 'mine' | 'friend'
+  const [friendUserId, setFriendUserId] = useState(null);
+  const [friendItems, setFriendItems] = useState([]);
+  const [friendShared, setFriendShared] = useState(true);
+  const [loadingFriend, setLoadingFriend] = useState(false);
 
   async function fetchItems() {
     setLoading(true);
@@ -185,6 +191,18 @@ export default function PlannerPage() {
     } catch (err) { console.error(err); }
   }
 
+  async function handleFriendSelect(userId) {
+    setFriendUserId(userId);
+    if (!userId) { setFriendItems([]); return; }
+    setLoadingFriend(true);
+    try {
+      const data = await apiClient.get(`/api/friends/${userId}/planner`, { date: toDateStr(selectedDate) });
+      setFriendShared(data.shared);
+      setFriendItems(data.items || []);
+    } catch { setFriendItems([]); }
+    finally { setLoadingFriend(false); }
+  }
+
   return (
     <PageContainer title="Kế hoạch ngày" description="Lập kế hoạch hàng ngày">
       {/* Date navigation */}
@@ -197,15 +215,68 @@ export default function PlannerPage() {
         </Box>
         <IconButton onClick={nextDay}><IconChevronRight /></IconButton>
         <Button variant="outlined" size="small" onClick={() => setSelectedDate(new Date())}>Hôm nay</Button>
-        <Tooltip title="Xuất / Nhập dữ liệu">
-          <IconButton onClick={() => { setExportOpen(true); setImportPreview(null); setImportDone(false); }}>
-            <IconDownload size={20} />
-          </IconButton>
-        </Tooltip>
+        <Button
+          variant={viewMode === 'friend' ? 'contained' : 'outlined'}
+          size="small"
+          onClick={() => setViewMode(v => v === 'mine' ? 'friend' : 'mine')}
+        >
+          {viewMode === 'friend' ? 'Của mình' : 'Bạn bè'}
+        </Button>
+        {viewMode === 'mine' && (
+          <Tooltip title="Xuất / Nhập dữ liệu">
+            <IconButton onClick={() => { setExportOpen(true); setImportPreview(null); setImportDone(false); }}>
+              <IconDownload size={20} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
-      {/* Items list */}
-      <Card sx={{ borderRadius: 2, mb: 2 }}>
+      {viewMode === 'friend' && (
+        <Box sx={{ mb: 2 }}>
+          <FriendSelector value={friendUserId} onChange={(uid) => handleFriendSelect(uid)} label="Chọn bạn bè" />
+        </Box>
+      )}
+
+      {/* Friend view */}
+      {viewMode === 'friend' && (
+        <Card sx={{ borderRadius: 2, mb: 2 }}>
+          <CardContent>
+            {!friendUserId && (
+              <Typography align="center" color="textSecondary">Chọn bạn bè ở trên để xem kế hoạch ngày của họ</Typography>
+            )}
+            {friendUserId && loadingFriend && (
+              <Typography align="center" color="textSecondary">Đang tải...</Typography>
+            )}
+            {friendUserId && !loadingFriend && !friendShared && (
+              <Alert severity="info">Bạn bè này chưa bật chia sẻ Kế hoạch ngày.</Alert>
+            )}
+            {friendUserId && !loadingFriend && friendShared && (
+              friendItems.length === 0 ? (
+                <Typography align="center" color="textSecondary">Không có kế hoạch nào trong ngày này</Typography>
+              ) : (
+                <Box>
+                  {friendItems.map(item => {
+                    const priority = PRIORITIES.find(p => p.value === item.priority);
+                    return (
+                      <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, mb: 1, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                        <Checkbox checked={!!item.isDone} disabled size="small" />
+                        <Typography variant="body2" sx={{ flex: 1, fontWeight: 500, textDecoration: item.isDone ? 'line-through' : 'none', color: item.isDone ? 'text.disabled' : 'text.primary' }}>
+                          {item.title}
+                        </Typography>
+                        {item.estimatedMinutes && <Typography variant="caption" color="textSecondary">{item.estimatedMinutes}p</Typography>}
+                        {priority && <Chip label={priority.label} color={priority.color} size="small" />}
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Items list (own) */}
+      {viewMode === 'mine' && (<><Card sx={{ borderRadius: 2, mb: 2 }}>
         <CardContent>
           {loading ? (
             <Typography align="center" color="textSecondary">Đang tải...</Typography>
@@ -287,6 +358,7 @@ export default function PlannerPage() {
           </Box>
         </CardContent>
       </Card>
+      </>)}
 
       {/* Export / Import dialog */}
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="sm" fullWidth>
