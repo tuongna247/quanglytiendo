@@ -142,7 +142,7 @@ public class FriendsController : ControllerBase
         var userId = UserId;
         var fs = await _db.Friendships.FindAsync(id);
         if (fs == null || fs.AddresseeId != userId) return NotFound();
-        if (fs.Status != "pending") return BadRequest("Lời mời không hợp lệ");
+        if (fs.Status == "accepted") return Ok(); // idempotent
 
         fs.Status = "accepted";
         fs.UpdatedAt = DateTime.UtcNow;

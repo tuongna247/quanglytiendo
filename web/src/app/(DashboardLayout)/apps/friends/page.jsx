@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -24,11 +24,13 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import {
   IconUserPlus, IconUserMinus, IconCheck, IconX, IconSettings,
-  IconSearch,
+  IconSearch, IconMessage,
 } from '@tabler/icons-react';
 
+import Drawer from '@mui/material/Drawer';
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
+import ChatPanel from '@/app/components/apps/friends/ChatPanel';
 
 function UserAvatar({ displayName, username, avatarColor, size = 40 }) {
   const letter = (displayName?.[0] || username?.[0] || '?').toUpperCase();
@@ -45,6 +47,12 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Chat
+  const [chatFriend, setChatFriend] = useState(null); // FriendDto đang chat
+  const currentUser = typeof window !== 'undefined'
+    ? JSON.parse(localStorage.getItem('qlTD_user') || 'null')
+    : null;
 
   // Search dialog
   const [searchOpen, setSearchOpen] = useState(false);
@@ -67,17 +75,18 @@ export default function FriendsPage() {
     finally { setLoading(false); }
   }
 
-  async function fetchShareSettings() {
+  async function openShareSettings() {
+    // Load fresh settings mỗi lần mở dialog — tránh race condition
     try {
       const data = await apiClient.get('/api/friends/share-settings');
-      setShareSettings(data);
-    } catch { }
+      setShareSettings(data || { shareTasks: false, sharePlanner: false, shareFinanceSummary: false });
+    } catch {
+      setShareSettings({ shareTasks: false, sharePlanner: false, shareFinanceSummary: false });
+    }
+    setSettingsOpen(true);
   }
 
-  useEffect(() => {
-    fetchFriends();
-    fetchShareSettings();
-  }, []);
+  useEffect(() => { fetchFriends(); }, []);
 
   const accepted = friends.filter(f => f.status === 'accepted');
   const received = friends.filter(f => f.status === 'pending' && f.direction === 'received');
@@ -195,7 +204,7 @@ export default function FriendsPage() {
         <Button
           variant="outlined"
           startIcon={<IconSettings size={16} />}
-          onClick={() => setSettingsOpen(true)}
+          onClick={openShareSettings}
           size="small"
         >
           Chia sẻ

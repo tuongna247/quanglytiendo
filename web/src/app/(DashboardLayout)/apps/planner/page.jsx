@@ -199,7 +199,7 @@ export default function PlannerPage() {
       const data = await apiClient.get(`/api/friends/${userId}/planner`, { date: toDateStr(selectedDate) });
       setFriendShared(data.shared);
       setFriendItems(data.items || []);
-    } catch { setFriendItems([]); }
+    } catch { setFriendShared(false); setFriendItems([]); }
     finally { setLoadingFriend(false); }
   }
 

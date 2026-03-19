@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<EbookProgress> EbookProgresses => Set<EbookProgress>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<UserShareSettings> UserShareSettings => Set<UserShareSettings>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -376,6 +377,23 @@ public class AppDbContext : DbContext
              .WithOne()
              .HasForeignKey<UserShareSettings>(x => x.UserId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ChatMessage ──────────────────────────────────────────────────────────
+        modelBuilder.Entity<ChatMessage>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            // Restrict to avoid multiple cascade paths (SQL Server limitation)
+            e.HasOne(x => x.Sender)
+             .WithMany()
+             .HasForeignKey(x => x.SenderId)
+             .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Receiver)
+             .WithMany()
+             .HasForeignKey(x => x.ReceiverId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

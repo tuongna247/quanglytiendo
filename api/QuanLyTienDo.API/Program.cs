@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using QuanLyTienDo.API.Data;
+using QuanLyTienDo.API.Hubs;
 using QuanLyTienDo.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +30,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+        // SignalR: WebSocket không gửi Authorization header → lấy token từ query string
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(token) && path.StartsWithSegments("/hubs"))
+                    context.Token = token;
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -57,6 +70,9 @@ builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
 });
+
+// ── SignalR ────────────────────────────────────────────────────────────────────
+builder.Services.AddSignalR();
 
 // ── Application Services ──────────────────────────────────────────────────────
 builder.Services.AddScoped<IEmailService, SendGridEmailService>();
@@ -140,5 +156,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();

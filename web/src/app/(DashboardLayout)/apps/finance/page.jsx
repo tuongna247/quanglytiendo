@@ -409,7 +409,7 @@ export default function FinancePage() {
       const data = await apiClient.get(`/api/friends/${userId}/finance-summary`, { month });
       setFriendShared(data.shared);
       setFriendSummary(data.summary || null);
-    } catch { setFriendSummary(null); }
+    } catch { setFriendShared(false); setFriendSummary(null); }
     finally { setLoadingFriend(false); }
   }
 

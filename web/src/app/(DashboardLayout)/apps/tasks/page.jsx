@@ -238,7 +238,10 @@ export default function TasksPage() {
       const data = await apiClient.get(`/api/friends/${userId}/tasks`);
       setFriendTasksShared(data.shared);
       setFriendTasks(data.tasks || []);
-    } catch { setFriendTasks([]); }
+    } catch (e) {
+      setFriendTasksShared(false);
+      setFriendTasks([]);
+    }
     finally { setLoadingFriendTasks(false); }
   }
 
@@ -435,7 +438,7 @@ export default function TasksPage() {
             <Typography align="center" sx={{ py: 4 }}>Đang tải...</Typography>
           )}
           {friendUserId && !loadingFriendTasks && !friendTasksShared && (
-            <Alert severity="info">Bạn bè này chưa bật chia sẻ Công việc.</Alert>
+            <Alert severity="info">Bạn bè này chưa bật chia sẻ Công việc. Họ cần vào trang <strong>Bạn bè → Cài đặt chia sẻ</strong> và bật "Chia sẻ Công việc".</Alert>
           )}
           {friendUserId && !loadingFriendTasks && friendTasksShared && (
             <Card sx={{ borderRadius: 2 }}>
