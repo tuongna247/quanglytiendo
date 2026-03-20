@@ -29,7 +29,10 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
-import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings, IconColumns } from '@tabler/icons-react';
+import Slider from '@mui/material/Slider';
+import Popover from '@mui/material/Popover';
+import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings, IconColumns, IconAbc } from '@tabler/icons-react';
+import { getActiveVocab, tokenizeVerse } from '@/app/lib/bibleWordWise';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -309,7 +312,14 @@ function getCurrentWeekIdx() {
 }
 
 // ── Highlight toolbar ────────────────────────────────────────────────────────
-function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize, dualVersion, onDualVersionToggle }) {
+const WORD_WISE_MARKS = [
+  { value: 1, label: 'Ít' },
+  { value: 2, label: 'Vừa' },
+  { value: 3, label: 'Nhiều' },
+];
+
+function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize, dualVersion, onDualVersionToggle, wordWise, wordWiseLevel, onWordWiseToggle, onWordWiseLevelChange }) {
+  const [wwAnchor, setWwAnchor] = useState(null);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', py: 1, px: 0.5, mb: 1 }}>
       {/* Highlight colors */}
@@ -361,12 +371,81 @@ function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagra
           <IconColumns size={18} />
         </IconButton>
       </Tooltip>
+      {/* Word Wise */}
+      <Tooltip title="Word Wise — hiện gợi ý từ khó (NIV)">
+        <IconButton size="small" onClick={e => setWwAnchor(e.currentTarget)} color={wordWise ? 'secondary' : 'default'}>
+          <IconAbc size={20} />
+        </IconButton>
+      </Tooltip>
+      <Popover
+        open={Boolean(wwAnchor)}
+        anchorEl={wwAnchor}
+        onClose={() => setWwAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 2, minWidth: 220 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Word Wise</Typography>
+            <Button size="small" variant={wordWise ? 'contained' : 'outlined'} color="secondary" onClick={onWordWiseToggle} sx={{ minWidth: 60, py: 0.25 }}>
+              {wordWise ? 'Bật' : 'Tắt'}
+            </Button>
+          </Box>
+          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1.5 }}>
+            Hiện định nghĩa ngắn phía trên từ khó trong NIV
+          </Typography>
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>Số gợi ý: {WORD_WISE_MARKS.find(m => m.value === wordWiseLevel)?.label}</Typography>
+          <Slider
+            value={wordWiseLevel}
+            min={1} max={3} step={1}
+            marks={WORD_WISE_MARKS}
+            disabled={!wordWise}
+            onChange={(_, v) => onWordWiseLevelChange(v)}
+            color="secondary"
+            sx={{ mt: 0.5 }}
+          />
+          <Typography variant="caption" color="textSecondary">
+            {wordWiseLevel === 1 ? '• Chỉ từ khó nhất (thần học chuyên sâu)' : wordWiseLevel === 2 ? '• Từ khó + từ thần học quan trọng' : '• Tất cả từ ít phổ biến'}
+          </Typography>
+        </Box>
+      </Popover>
     </Box>
   );
 }
 
+// ── Word Wise verse renderer ──────────────────────────────────────────────────
+function WordWiseVerse({ text, vocab, fontFamily, fontSize }) {
+  const tokens = tokenizeVerse(text);
+  return (
+    <span>
+      {tokens.map((tok, i) => {
+        if (!tok.word) return <span key={i}>{tok.text}</span>;
+        const entry = vocab[tok.word];
+        if (!entry) return <span key={i}>{tok.text}</span>;
+        return (
+          <ruby key={i} style={{ display: 'inline-flex', flexDirection: 'column-reverse', alignItems: 'center', verticalAlign: 'bottom' }}>
+            <span style={{ fontFamily, fontSize }}>{tok.text}</span>
+            <rt style={{
+              fontSize: '0.58em',
+              color: '#1976d2',
+              fontWeight: 500,
+              fontStyle: 'normal',
+              lineHeight: 1.1,
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+              textDecoration: 'none',
+              userSelect: 'none',
+            }}>
+              {entry.def}
+            </rt>
+          </ruby>
+        );
+      })}
+    </span>
+  );
+}
+
 // ── Bible text renderer ──────────────────────────────────────────────────────
-function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, activeColor, onHighlight, fontFamily, fontSize, highlightedRange }) {
+function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, activeColor, onHighlight, fontFamily, fontSize, highlightedRange, wordWise, wordWiseVocab }) {
   if (paragraphMode) {
     return (
       <Box sx={{ fontFamily, fontSize, lineHeight: 2 }}>
@@ -392,10 +471,14 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                         bgcolor: bg || (isInRange ? 'primary.50' : 'transparent'),
                         borderRadius: 0.5, px: 0.2,
                         '&:hover': { bgcolor: bg || '#f5f5f5' },
+                        display: 'inline',
+                        lineHeight: wordWise ? 2.8 : 2,
                       }}
                     >
                       <Box component="sup" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '0.7em', mr: 0.3 }}>{vIdx + 1}</Box>
-                      {verse}{' '}
+                      {wordWise && wordWiseVocab
+                        ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} />
+                        : verse}{' '}
                     </Box>
                   );
                 })}
@@ -432,10 +515,14 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                     '&:hover': { bgcolor: bg || 'action.hover' },
                   }}
                 >
-                  <Typography variant="caption" sx={{ minWidth: 22, fontWeight: 700, color: 'primary.main', mt: 0.3, lineHeight: 1.9, fontFamily }}>
+                  <Typography variant="caption" sx={{ minWidth: 22, fontWeight: 700, color: 'primary.main', mt: 0.3, lineHeight: wordWise ? 3.5 : 1.9, fontFamily }}>
                     {vIdx + 1}
                   </Typography>
-                  <Typography sx={{ lineHeight: 1.9, flex: 1, fontFamily, fontSize }}>{verse}</Typography>
+                  <Typography sx={{ lineHeight: wordWise ? 3.5 : 1.9, flex: 1, fontFamily, fontSize }}>
+                    {wordWise && wordWiseVocab
+                      ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} />
+                      : verse}
+                  </Typography>
                 </Box>
               );
             })}
@@ -463,6 +550,13 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
   const [dualVersion, setDualVersion] = useState(() => {
     try { return localStorage.getItem('qlTD_bible_dual') === '1'; } catch { return false; }
   });
+  const [wordWise, setWordWise] = useState(() => {
+    try { return localStorage.getItem('qlTD_bible_ww') === '1'; } catch { return false; }
+  });
+  const [wordWiseLevel, setWordWiseLevel] = useState(() => {
+    try { return parseInt(localStorage.getItem('qlTD_bible_ww_level') || '2'); } catch { return 2; }
+  });
+  const wordWiseVocab = wordWise ? getActiveVocab(wordWiseLevel) : null;
   const hlKey = `qlTD_hl_${selectedBook}_${chapterFrom}`;
 
   useEffect(() => {
@@ -483,6 +577,21 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
     });
   }
 
+  function toggleWordWise() {
+    setWordWise(prev => {
+      const next = !prev;
+      try { localStorage.setItem('qlTD_bible_ww', next ? '1' : '0'); } catch {}
+      // Auto-load NIV when enabling Word Wise
+      if (next && !bibleNIV) loadBibleNIV().then(data => setBibleNIV(data));
+      return next;
+    });
+  }
+
+  function changeWordWiseLevel(v) {
+    setWordWiseLevel(v);
+    try { localStorage.setItem('qlTD_bible_ww_level', String(v)); } catch {}
+  }
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(hlKey);
@@ -501,7 +610,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
 
   // Chapters to display: from chapterFrom to chapterTo (inclusive)
   const displayChapters = bookChapters.slice(chapterFrom - 1, chapterTo);
-  const displayChaptersNIV = (dualVersion && bibleNIV) ? (bibleNIV[selectedBook] || []).slice(chapterFrom - 1, chapterTo) : [];
+  const displayChaptersNIV = bibleNIV ? (bibleNIV[selectedBook] || []).slice(chapterFrom - 1, chapterTo) : [];
 
   function goBook(bookId, from = 1) {
     setSelectedBook(bookId);
@@ -581,10 +690,11 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
             fontFamily={fontFamily} onFont={setFontFamily}
             fontSize={fontSize} onFontSize={setFontSize}
             dualVersion={dualVersion} onDualVersionToggle={toggleDualVersion}
+            wordWise={wordWise} wordWiseLevel={wordWiseLevel} onWordWiseToggle={toggleWordWise} onWordWiseLevelChange={changeWordWiseLevel}
           />
           {loading ? <CircularProgress /> : (
             <>
-              <BibleTextContent chapters={displayChapters} chapterOffset={chapterFrom} paragraphMode={paragraphMode} highlights={highlights} activeColor={activeColor} onHighlight={applyHighlight} fontFamily={fontFamily} fontSize={fontSize} highlightedRange={highlightedRange} />
+              <BibleTextContent chapters={displayChapters} chapterOffset={chapterFrom} paragraphMode={paragraphMode} highlights={highlights} activeColor={activeColor} onHighlight={applyHighlight} fontFamily={fontFamily} fontSize={fontSize} highlightedRange={highlightedRange} wordWise={wordWise && !!bibleNIV} wordWiseVocab={wordWiseVocab} />
               {planDateForCurrent && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                   <Button
@@ -670,9 +780,22 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
             fontFamily={fontFamily} onFont={setFontFamily}
             fontSize={fontSize} onFontSize={setFontSize}
             dualVersion={dualVersion} onDualVersionToggle={toggleDualVersion}
+            wordWise={wordWise} wordWiseLevel={wordWiseLevel} onWordWiseToggle={toggleWordWise} onWordWiseLevelChange={changeWordWiseLevel}
           />
         </CardContent>
       </Card>
+
+      {/* Word Wise banner when not in dual mode */}
+      {wordWise && !dualVersion && (
+        <Box sx={{ mb: 1.5, px: 2, py: 1, bgcolor: 'secondary.50', borderRadius: 2, border: '1px solid', borderColor: 'secondary.200', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="caption" color="secondary.dark">
+            Word Wise hoạt động trên bản NIV. Bật <strong>Song ngữ</strong> (biểu tượng ⊞) để thấy gợi ý từ vựng.
+          </Typography>
+          <Button size="small" variant="contained" color="secondary" sx={{ py: 0.25, ml: 'auto' }} onClick={toggleDualVersion}>
+            Bật song ngữ
+          </Button>
+        </Box>
+      )}
 
       {/* Content */}
       <Card sx={{ borderRadius: 2 }}>
@@ -712,6 +835,8 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
                       fontFamily={fontFamily}
                       fontSize={fontSize}
                       highlightedRange={null}
+                      wordWise={wordWise}
+                      wordWiseVocab={wordWiseVocab}
                     />
                   )}
                 </Box>
@@ -749,6 +874,8 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
                 fontFamily={fontFamily}
                 fontSize={fontSize}
                 highlightedRange={highlightedRange}
+                wordWise={false}
+                wordWiseVocab={null}
               />
               <Divider sx={{ my: 2 }} />
 
