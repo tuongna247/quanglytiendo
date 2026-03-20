@@ -1,4 +1,8 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using QuanLyTienDo.API.Data;
 using QuanLyTienDo.API.DTOs;
 using QuanLyTienDo.API.Services;
 
@@ -9,10 +13,25 @@ namespace QuanLyTienDo.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly AppDbContext _db;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, AppDbContext db)
     {
         _authService = authService;
+        _db = db;
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> Me()
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.Id, u.Username, u.DisplayName, u.AvatarColor, u.Email })
+            .FirstOrDefaultAsync();
+        if (user is null) return NotFound();
+        return Ok(user);
     }
 
     [HttpPost("register")]

@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using QuanLyTienDo.API.Data;
+using QuanLyTienDo.API.Hubs;
 
 namespace QuanLyTienDo.API.Controllers;
 
@@ -12,7 +14,8 @@ namespace QuanLyTienDo.API.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public ChatController(AppDbContext db) { _db = db; }
+    private readonly IHubContext<ChatHub> _hub;
+    public ChatController(AppDbContext db, IHubContext<ChatHub> hub) { _db = db; _hub = hub; }
 
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
@@ -37,6 +40,8 @@ public class ChatController : ControllerBase
                 m.ReceiverId,
                 m.Content,
                 m.IsRead,
+                m.IsEdited,
+                m.IsDeleted,
                 m.CreatedAt,
             })
             .ToListAsync();
@@ -112,4 +117,44 @@ public class ChatController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok();
     }
+
+    // PUT /api/chat/messages/{id} — edit message
+    [HttpPut("messages/{id:guid}")]
+    public async Task<IActionResult> EditMessage(Guid id, [FromBody] EditMessageRequest req)
+    {
+        var userId = UserId;
+        var msg = await _db.ChatMessages.FindAsync(id);
+        if (msg is null || msg.IsDeleted) return NotFound();
+        if (msg.SenderId != userId) return Forbid();
+        if (string.IsNullOrWhiteSpace(req.Content)) return BadRequest("Content cannot be empty.");
+
+        msg.Content = req.Content.Trim();
+        msg.IsEdited = true;
+        await _db.SaveChangesAsync();
+
+        var payload = new { id = msg.Id, senderId = msg.SenderId, receiverId = msg.ReceiverId, content = msg.Content, isEdited = msg.IsEdited, isDeleted = msg.IsDeleted, createdAt = msg.CreatedAt };
+        // Notify both parties via SignalR
+        await _hub.Clients.All.SendAsync("MessageUpdated", payload);
+        return Ok(payload);
+    }
+
+    // DELETE /api/chat/messages/{id} — soft delete message
+    [HttpDelete("messages/{id:guid}")]
+    public async Task<IActionResult> DeleteMessage(Guid id)
+    {
+        var userId = UserId;
+        var msg = await _db.ChatMessages.FindAsync(id);
+        if (msg is null) return NotFound();
+        if (msg.SenderId != userId) return Forbid();
+
+        msg.IsDeleted = true;
+        msg.Content = "";
+        await _db.SaveChangesAsync();
+
+        var payload = new { id = msg.Id, senderId = msg.SenderId, receiverId = msg.ReceiverId, isDeleted = true };
+        await _hub.Clients.All.SendAsync("MessageDeleted", payload);
+        return Ok(payload);
+    }
 }
+
+public record EditMessageRequest(string Content);

@@ -395,7 +395,6 @@ export default function FriendsPage() {
         {chatFriend && (
           <ChatPanel
             friend={chatFriend}
-            currentUser={currentUser}
             onClose={() => setChatFriend(null)}
           />
         )}

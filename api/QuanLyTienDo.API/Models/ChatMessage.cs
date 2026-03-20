@@ -7,6 +7,8 @@ public class ChatMessage
     public Guid ReceiverId { get; set; }
     public string Content { get; set; } = string.Empty;
     public bool IsRead { get; set; } = false;
+    public bool IsEdited { get; set; } = false;
+    public bool IsDeleted { get; set; } = false;
     public DateTime CreatedAt { get; set; }
 
     public User Sender { get; set; } = null!;

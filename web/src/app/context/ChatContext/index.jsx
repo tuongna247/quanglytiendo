@@ -62,9 +62,10 @@ export const ChatProvider = ({ children }) => {
       // Update messages if this conversation is open
       setSelectedChat(prev => {
         if (!prev) return prev;
+        const meId = currentUser?.id;
         const relevant =
-          (msg.senderId === prev.partnerId && msg.receiverId === currentUser?.id) ||
-          (msg.senderId === currentUser?.id && msg.receiverId === prev.partnerId);
+          (msg.senderId === prev.partnerId && msg.receiverId === meId) ||
+          (msg.senderId === meId && msg.receiverId === prev.partnerId);
         if (!relevant) return prev;
         if (prev.messages?.some(m => m.id === msg.id)) return prev;
         return { ...prev, messages: [...(prev.messages || []), msg] };
@@ -72,6 +73,20 @@ export const ChatProvider = ({ children }) => {
 
       // Refresh conversation list (last message + unread count)
       fetchConversations();
+    });
+
+    connection.on('MessageUpdated', (updated) => {
+      setSelectedChat(prev => {
+        if (!prev) return prev;
+        return { ...prev, messages: (prev.messages || []).map(m => m.id === updated.id ? { ...m, content: updated.content, isEdited: true } : m) };
+      });
+    });
+
+    connection.on('MessageDeleted', (deleted) => {
+      setSelectedChat(prev => {
+        if (!prev) return prev;
+        return { ...prev, messages: (prev.messages || []).map(m => m.id === deleted.id ? { ...m, isDeleted: true, content: '' } : m) };
+      });
     });
 
     connection.on('UserTyping', (senderId) => {
