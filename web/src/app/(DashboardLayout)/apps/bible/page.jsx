@@ -30,7 +30,6 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Slider from '@mui/material/Slider';
-import Popover from '@mui/material/Popover';
 import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings, IconColumns, IconAbc } from '@tabler/icons-react';
 import { getActiveVocab, tokenizeVerse } from '@/app/lib/bibleWordWise';
 
@@ -319,95 +318,92 @@ const WORD_WISE_MARKS = [
 ];
 
 function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize, dualVersion, onDualVersionToggle, wordWise, wordWiseLevel, onWordWiseToggle, onWordWiseLevelChange }) {
-  const [wwAnchor, setWwAnchor] = useState(null);
+  const [wwOpen, setWwOpen] = useState(false);
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', py: 1, px: 0.5, mb: 1 }}>
-      {/* Highlight colors */}
-      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-        {HIGHLIGHT_COLORS.map(c => (
-          <Tooltip key={c.label} title={c.label}>
-            <Box
-              onClick={() => onColorChange(c.value)}
-              sx={{
-                width: 22, height: 22, borderRadius: '50%',
-                bgcolor: c.bg,
-                border: activeColor === c.value ? '2px solid #1976d2' : '1px solid #ccc',
-                cursor: 'pointer', flexShrink: 0,
-                '&:hover': { transform: 'scale(1.2)' },
-              }}
-            />
-          </Tooltip>
-        ))}
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', py: 1, px: 0.5 }}>
+        {/* Highlight colors */}
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          {HIGHLIGHT_COLORS.map(c => (
+            <Tooltip key={c.label} title={c.label}>
+              <Box
+                onClick={() => onColorChange(c.value)}
+                sx={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  bgcolor: c.bg,
+                  border: activeColor === c.value ? '2px solid #1976d2' : '1px solid #ccc',
+                  cursor: 'pointer', flexShrink: 0,
+                  '&:hover': { transform: 'scale(1.2)' },
+                }}
+              />
+            </Tooltip>
+          ))}
+        </Box>
+        <Divider orientation="vertical" flexItem />
+        {/* Font family */}
+        <FormControl size="small" sx={{ minWidth: 110 }}>
+          <Select value={fontFamily} onChange={e => onFont(e.target.value)} variant="standard" disableUnderline sx={{ fontSize: 13 }}>
+            {FONTS.map(f => <MenuItem key={f.value} value={f.value} sx={{ fontFamily: f.value, fontSize: 13 }}>{f.label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        {/* Font size */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+          <IconButton size="small" onClick={() => onFontSize(s => Math.max(12, s - 1))}><Typography sx={{ fontSize: 13, lineHeight: 1 }}>A-</Typography></IconButton>
+          <Typography variant="caption" sx={{ minWidth: 24, textAlign: 'center' }}>{fontSize}</Typography>
+          <IconButton size="small" onClick={() => onFontSize(s => Math.min(28, s + 1))}><Typography sx={{ fontSize: 13, lineHeight: 1 }}>A+</Typography></IconButton>
+        </Box>
+        <Divider orientation="vertical" flexItem />
+        {/* Paragraph mode */}
+        <Tooltip title={paragraphMode ? 'Đang xem đoạn văn — đổi sang từng câu' : 'Đang xem từng câu — đổi sang đoạn văn'}>
+          <IconButton size="small" onClick={onParagraphToggle} color={paragraphMode ? 'primary' : 'default'}>
+            {paragraphMode ? <IconAlignLeft size={18} /> : <IconList size={18} />}
+          </IconButton>
+        </Tooltip>
+        {/* Spotlight */}
+        <Tooltip title={spotlight ? 'Tắt spotlight' : 'Spotlight — chỉ hiện nội dung KT'}>
+          <IconButton size="small" onClick={onSpotlight} color={spotlight ? 'warning' : 'default'}>
+            {spotlight ? <IconArrowsMinimize size={18} /> : <IconArrowsMaximize size={18} />}
+          </IconButton>
+        </Tooltip>
+        {/* Dual version toggle */}
+        <Tooltip title={dualVersion ? 'Đang song ngữ VI+NIV — bấm để ẩn NIV' : 'Hiện song ngữ VI + NIV (song song)'}>
+          <IconButton size="small" onClick={onDualVersionToggle} color={dualVersion ? 'primary' : 'default'}>
+            <IconColumns size={18} />
+          </IconButton>
+        </Tooltip>
+        {/* Word Wise */}
+        <Tooltip title="Word Wise — hiện gợi ý từ khó (NIV)">
+          <IconButton size="small" onClick={() => setWwOpen(o => !o)} color={wordWise ? 'secondary' : wwOpen ? 'primary' : 'default'}>
+            <IconAbc size={20} />
+          </IconButton>
+        </Tooltip>
       </Box>
-      <Divider orientation="vertical" flexItem />
-      {/* Font family */}
-      <FormControl size="small" sx={{ minWidth: 110 }}>
-        <Select value={fontFamily} onChange={e => onFont(e.target.value)} variant="standard" disableUnderline sx={{ fontSize: 13 }}>
-          {FONTS.map(f => <MenuItem key={f.value} value={f.value} sx={{ fontFamily: f.value, fontSize: 13 }}>{f.label}</MenuItem>)}
-        </Select>
-      </FormControl>
-      {/* Font size */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-        <IconButton size="small" onClick={() => onFontSize(s => Math.max(12, s - 1))}><Typography sx={{ fontSize: 13, lineHeight: 1 }}>A-</Typography></IconButton>
-        <Typography variant="caption" sx={{ minWidth: 24, textAlign: 'center' }}>{fontSize}</Typography>
-        <IconButton size="small" onClick={() => onFontSize(s => Math.min(28, s + 1))}><Typography sx={{ fontSize: 13, lineHeight: 1 }}>A+</Typography></IconButton>
-      </Box>
-      <Divider orientation="vertical" flexItem />
-      {/* Paragraph mode */}
-      <Tooltip title={paragraphMode ? 'Đang xem đoạn văn — đổi sang từng câu' : 'Đang xem từng câu — đổi sang đoạn văn'}>
-        <IconButton size="small" onClick={onParagraphToggle} color={paragraphMode ? 'primary' : 'default'}>
-          {paragraphMode ? <IconAlignLeft size={18} /> : <IconList size={18} />}
-        </IconButton>
-      </Tooltip>
-      {/* Spotlight */}
-      <Tooltip title={spotlight ? 'Tắt spotlight' : 'Spotlight — chỉ hiện nội dung KT'}>
-        <IconButton size="small" onClick={onSpotlight} color={spotlight ? 'warning' : 'default'}>
-          {spotlight ? <IconArrowsMinimize size={18} /> : <IconArrowsMaximize size={18} />}
-        </IconButton>
-      </Tooltip>
-      {/* Dual version toggle */}
-      <Tooltip title={dualVersion ? 'Đang song ngữ VI+NIV — bấm để ẩn NIV' : 'Hiện song ngữ VI + NIV (song song)'}>
-        <IconButton size="small" onClick={onDualVersionToggle} color={dualVersion ? 'primary' : 'default'}>
-          <IconColumns size={18} />
-        </IconButton>
-      </Tooltip>
-      {/* Word Wise */}
-      <Tooltip title="Word Wise — hiện gợi ý từ khó (NIV)">
-        <IconButton size="small" onClick={e => setWwAnchor(e.currentTarget)} color={wordWise ? 'secondary' : 'default'}>
-          <IconAbc size={20} />
-        </IconButton>
-      </Tooltip>
-      <Popover
-        open={Boolean(wwAnchor)}
-        anchorEl={wwAnchor}
-        onClose={() => setWwAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Box sx={{ p: 2, minWidth: 220 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Word Wise</Typography>
-            <Button size="small" variant={wordWise ? 'contained' : 'outlined'} color="secondary" onClick={onWordWiseToggle} sx={{ minWidth: 60, py: 0.25 }}>
+      {/* Word Wise inline panel — no Popover so Slider drag works */}
+      {wwOpen && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 1.5, py: 1, mb: 1, bgcolor: 'action.hover', borderRadius: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Word Wise</Typography>
+            <Button size="small" variant={wordWise ? 'contained' : 'outlined'} color="secondary" onClick={onWordWiseToggle} sx={{ minWidth: 52, py: 0.2, fontSize: 11 }}>
               {wordWise ? 'Bật' : 'Tắt'}
             </Button>
           </Box>
-          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1.5 }}>
-            Hiện định nghĩa ngắn phía trên từ khó trong NIV
-          </Typography>
-          <Typography variant="caption" sx={{ fontWeight: 600 }}>Số gợi ý: {WORD_WISE_MARKS.find(m => m.value === wordWiseLevel)?.label}</Typography>
-          <Slider
-            value={wordWiseLevel}
-            min={1} max={3} step={1}
-            marks={WORD_WISE_MARKS}
-            disabled={!wordWise}
-            onChange={(_, v) => onWordWiseLevelChange(v)}
-            color="secondary"
-            sx={{ mt: 0.5 }}
-          />
-          <Typography variant="caption" color="textSecondary">
-            {wordWiseLevel === 1 ? '• Chỉ từ khó nhất (thần học chuyên sâu)' : wordWiseLevel === 2 ? '• Từ khó + từ thần học quan trọng' : '• Tất cả từ ít phổ biến'}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 200 }}>
+            <Typography variant="caption" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>Số gợi ý:</Typography>
+            <Slider
+              value={wordWiseLevel}
+              min={1} max={3} step={1}
+              marks={WORD_WISE_MARKS}
+              disabled={!wordWise}
+              onChange={(_, v) => onWordWiseLevelChange(v)}
+              color="secondary"
+              sx={{ flex: 1, maxWidth: 180 }}
+            />
+          </Box>
+          <Typography variant="caption" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>
+            {wordWiseLevel === 1 ? 'Chỉ từ thần học chuyên sâu' : wordWiseLevel === 2 ? 'Từ thần học + từ quan trọng' : 'Tất cả từ ít phổ biến'}
           </Typography>
         </Box>
-      </Popover>
+      )}
     </Box>
   );
 }
