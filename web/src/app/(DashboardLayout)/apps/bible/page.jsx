@@ -409,7 +409,7 @@ function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagra
 }
 
 // ── Word Wise verse renderer ──────────────────────────────────────────────────
-function WordWiseVerse({ text, vocab, fontFamily, fontSize }) {
+function WordWiseVerse({ text, vocab, fontFamily, fontSize, seenWords }) {
   const tokens = tokenizeVerse(text);
   return (
     <span>
@@ -417,21 +417,18 @@ function WordWiseVerse({ text, vocab, fontFamily, fontSize }) {
         if (!tok.word) return <span key={i}>{tok.text}</span>;
         const entry = vocab[tok.word];
         if (!entry) return <span key={i}>{tok.text}</span>;
+        const firstTime = !seenWords.has(tok.word);
+        seenWords.add(tok.word);
+        if (!firstTime) {
+          return <span key={i}>{tok.text}</span>;
+        }
         return (
           <ruby key={i} style={{ display: 'inline-flex', flexDirection: 'column-reverse', alignItems: 'center', verticalAlign: 'bottom' }}>
             <span style={{ fontFamily, fontSize }}>{tok.text}</span>
-            <rt style={{
-              fontSize: '0.58em',
-              color: '#1976d2',
-              fontWeight: 500,
-              fontStyle: 'normal',
-              lineHeight: 1.1,
-              textAlign: 'center',
-              whiteSpace: 'nowrap',
-              textDecoration: 'none',
-              userSelect: 'none',
-            }}>
-              {entry.def}
+            <rt style={{ fontSize: '0.58em', lineHeight: 1, userSelect: 'none', textAlign: 'center', textDecoration: 'none' }}>
+              <span style={{ display: 'block', color: '#1976d2', fontWeight: 500, fontStyle: 'normal', whiteSpace: 'nowrap' }}>
+                {entry.def}
+              </span>
             </rt>
           </ruby>
         );
@@ -440,8 +437,14 @@ function WordWiseVerse({ text, vocab, fontFamily, fontSize }) {
   );
 }
 
+function verseHasHardWords(text, vocab) {
+  if (!vocab) return false;
+  return tokenizeVerse(text).some(tok => tok.word && vocab[tok.word]);
+}
+
 // ── Bible text renderer ──────────────────────────────────────────────────────
 function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, activeColor, onHighlight, fontFamily, fontSize, highlightedRange, wordWise, wordWiseVocab }) {
+  const seenWords = new Set();
   if (paragraphMode) {
     return (
       <Box sx={{ fontFamily, fontSize, lineHeight: 2 }}>
@@ -457,6 +460,7 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                   const key = `${chNum}:${vIdx + 1}`;
                   const bg = highlights[key];
                   const isInRange = highlightedRange && chNum >= highlightedRange.chFrom && chNum <= highlightedRange.chTo;
+                  const hasHard = wordWise && verseHasHardWords(verse, wordWiseVocab);
                   return (
                     <Box
                       key={vIdx}
@@ -468,12 +472,12 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                         borderRadius: 0.5, px: 0.2,
                         '&:hover': { bgcolor: bg || '#f5f5f5' },
                         display: 'inline',
-                        lineHeight: wordWise ? 2.8 : 2,
+                        lineHeight: hasHard ? 2.8 : 2,
                       }}
                     >
                       <Box component="sup" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '0.7em', mr: 0.3 }}>{vIdx + 1}</Box>
                       {wordWise && wordWiseVocab
-                        ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} />
+                        ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} seenWords={seenWords} />
                         : verse}{' '}
                     </Box>
                   );
@@ -500,6 +504,8 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
             {verses.map((verse, vIdx) => {
               const key = `${chNum}:${vIdx + 1}`;
               const bg = highlights[key];
+              const hasHard = wordWise && verseHasHardWords(verse, wordWiseVocab);
+              const lh = hasHard ? 3.5 : 1.9;
               return (
                 <Box
                   key={vIdx}
@@ -511,12 +517,12 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                     '&:hover': { bgcolor: bg || 'action.hover' },
                   }}
                 >
-                  <Typography variant="caption" sx={{ minWidth: 22, fontWeight: 700, color: 'primary.main', mt: 0.3, lineHeight: wordWise ? 3.5 : 1.9, fontFamily }}>
+                  <Typography variant="caption" sx={{ minWidth: 22, fontWeight: 700, color: 'primary.main', mt: 0.3, lineHeight: lh, fontFamily }}>
                     {vIdx + 1}
                   </Typography>
-                  <Typography sx={{ lineHeight: wordWise ? 3.5 : 1.9, flex: 1, fontFamily, fontSize }}>
+                  <Typography sx={{ lineHeight: lh, flex: 1, fontFamily, fontSize }}>
                     {wordWise && wordWiseVocab
-                      ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} />
+                      ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} seenWords={seenWords} />
                       : verse}
                   </Typography>
                 </Box>
