@@ -149,14 +149,20 @@ export default function FriendsPage() {
 
   function FriendCard({ f }) {
     return (
-      <Card sx={{ borderRadius: 2 }}>
+      <Card
+        sx={{ borderRadius: 2, cursor: 'pointer', '&:hover': { boxShadow: 4 }, transition: 'box-shadow 0.15s' }}
+        onClick={() => setChatFriend(f)}
+      >
         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, '&:last-child': { pb: 2 } }}>
           <UserAvatar displayName={f.displayName} username={f.username} avatarColor={f.avatarColor} />
           <Box sx={{ flex: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{f.displayName}</Typography>
             <Typography variant="caption" color="textSecondary">@{f.username}</Typography>
           </Box>
-          <IconButton size="small" color="error" onClick={() => handleRemove(f.friendshipId)}>
+          <IconButton size="small" color="primary" onClick={e => { e.stopPropagation(); setChatFriend(f); }}>
+            <IconMessage size={16} />
+          </IconButton>
+          <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); handleRemove(f.friendshipId); }}>
             <IconUserMinus size={16} />
           </IconButton>
         </CardContent>
@@ -378,6 +384,22 @@ export default function FriendsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Chat Drawer */}
+      <Drawer
+        anchor="right"
+        open={!!chatFriend}
+        onClose={() => setChatFriend(null)}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 360 } } }}
+      >
+        {chatFriend && (
+          <ChatPanel
+            friend={chatFriend}
+            currentUser={currentUser}
+            onClose={() => setChatFriend(null)}
+          />
+        )}
+      </Drawer>
 
       <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="error" onClose={() => setError('')}>{error}</Alert>

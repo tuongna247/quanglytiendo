@@ -1,88 +1,153 @@
-'use client'
-import { createContext, useState, useEffect } from 'react';
-import React from "react";
-import useSWR from 'swr';
-import { getFetcher, postFetcher } from '@/app/api/globalFetcher';
+'use client';
+import { createContext, useState, useEffect, useRef, useCallback } from 'react';
+import * as signalR from '@microsoft/signalr';
+import apiClient from '@/app/lib/apiClient';
 
-
-// Create the context
 export const ChatContext = createContext({
-    chatData: [],
-    chatContent: [],
-    chatSearch: '',
-    selectedChat: null,
-    loading: true,
-    error: '',
-    activeChatId: null,
-    setChatContent: () => { },
-    setChatSearch: () => { },
-    setSelectedChat: () => { },
-    setActiveChatId: () => { },
-    sendMessage: () => { },
-    setLoading: () => { },
-    setError: () => { },
+  conversations: [],
+  selectedChat: null, // { partnerId, partnerName, partnerUsername, partnerAvatarColor, messages[] }
+  currentUser: null,
+  chatSearch: '',
+  loading: true,
+  typing: false,
+  unreadTotal: 0,
+  setChatSearch: () => {},
+  selectChat: () => {},
+  sendMessage: () => {},
+  refreshConversations: () => {},
 });
 
-// Create the provider component
 export const ChatProvider = ({ children }) => {
-    const [chatData, setChatData] = useState([]);
-    const [chatContent, setChatContent] = useState([]);
-    const [chatSearch, setChatSearch] = useState('');
-    const [selectedChat, setSelectedChat] = useState(null);
-    const [activeChatId, setActiveChatId] = useState(1);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [chatSearch, setChatSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [typing, setTyping] = useState(false);
+  const [unreadTotal, setUnreadTotal] = useState(0);
+  const connectionRef = useRef(null);
+  const typingTimerRef = useRef(null);
 
-    const { data: ChatsData, isLoading: isChatsLoading, error: Chatserror, mutate } = useSWR('/api/chat', getFetcher);
+  const currentUser = typeof window !== 'undefined'
+    ? JSON.parse(localStorage.getItem('qlTD_user') || 'null')
+    : null;
 
-    // Fetch chat data from the API
-    useEffect(() => {
-        if (ChatsData) {
-            setLoading(isChatsLoading);
-            let chatsData = ChatsData.data;
-            if (chatData.length === 0) {
-                let specificChat = chatsData[0];
-                setSelectedChat(specificChat);
-            }
-            setChatData(chatsData);
-        } else if (Chatserror) {
-            setError(Chatserror)
-            setLoading(isChatsLoading);
-            console.log("Failed to fetch the data")
+  const fetchConversations = useCallback(async () => {
+    try {
+      const data = await apiClient.get('/api/chat/conversations');
+      setConversations(Array.isArray(data) ? data : []);
+      const total = Array.isArray(data) ? data.reduce((s, c) => s + (c.unreadCount || 0), 0) : 0;
+      setUnreadTotal(total);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Connect SignalR
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('qlTD_token') : '';
+    if (!token) return;
+
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(`/hubs/chat?access_token=${token}`)
+      .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    connection.on('ReceiveMessage', (msg) => {
+      // Update messages if this conversation is open
+      setSelectedChat(prev => {
+        if (!prev) return prev;
+        const relevant =
+          (msg.senderId === prev.partnerId && msg.receiverId === currentUser?.id) ||
+          (msg.senderId === currentUser?.id && msg.receiverId === prev.partnerId);
+        if (!relevant) return prev;
+        if (prev.messages?.some(m => m.id === msg.id)) return prev;
+        return { ...prev, messages: [...(prev.messages || []), msg] };
+      });
+
+      // Refresh conversation list (last message + unread count)
+      fetchConversations();
+    });
+
+    connection.on('UserTyping', (senderId) => {
+      setSelectedChat(prev => {
+        if (prev?.partnerId === senderId) {
+          setTyping(true);
+          clearTimeout(typingTimerRef.current);
+          typingTimerRef.current = setTimeout(() => setTyping(false), 3000);
         }
-        else {
-            setLoading(isChatsLoading);
-        }
-    }, [ChatsData, Chatserror, isChatsLoading, chatData.length]);
+        return prev;
+      });
+    });
 
-    // Function to send a message to a chat identified by `chatId` using an API call.
+    connection.start()
+      .then(() => { connectionRef.current = connection; })
+      .catch(err => console.warn('SignalR connect error:', err));
 
-    const sendMessage = async (chatId, message) => {
-        try {
-            let { data } = await mutate(postFetcher('/api/chat', { chatId, message }));
-            let chat = data.find((chat) => chat.id === chatId)
-            setSelectedChat(chat);
-        } catch (error) {
-            console.error('Error sending message:', error);
-        }
+    return () => {
+      connection.stop();
+      clearTimeout(typingTimerRef.current);
     };
-    const value = {
-        chatData,
-        chatContent,
-        chatSearch,
-        selectedChat,
-        loading,
-        error,
-        activeChatId,
-        setChatContent,
-        setChatSearch,
-        setSelectedChat,
-        setActiveChatId,
-        sendMessage,
-        setError,
-        setLoading,
-    };
-    return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectChat = useCallback(async (conv) => {
+    setSelectedChat({ ...conv, messages: [] });
+    setTyping(false);
+    try {
+      const msgs = await apiClient.get(`/api/chat/history/${conv.partnerId}`);
+      setSelectedChat(prev => prev?.partnerId === conv.partnerId
+        ? { ...prev, messages: Array.isArray(msgs) ? msgs : [] }
+        : prev
+      );
+      // Mark as read in sidebar
+      setConversations(prev => prev.map(c =>
+        c.partnerId === conv.partnerId ? { ...c, unreadCount: 0 } : c
+      ));
+      setUnreadTotal(prev => Math.max(0, prev - (conv.unreadCount || 0)));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const sendMessage = useCallback(async (text) => {
+    if (!text.trim() || !selectedChat || !connectionRef.current) return;
+    try {
+      await connectionRef.current.invoke('SendMessage', selectedChat.partnerId, text.trim());
+    } catch (err) {
+      console.error('Send error:', err);
+    }
+  }, [selectedChat]);
+
+  const sendTyping = useCallback(async () => {
+    if (!selectedChat || !connectionRef.current) return;
+    try {
+      await connectionRef.current.invoke('Typing', selectedChat.partnerId);
+    } catch { /* ignore */ }
+  }, [selectedChat]);
+
+  return (
+    <ChatContext.Provider value={{
+      conversations,
+      selectedChat,
+      currentUser,
+      chatSearch,
+      loading,
+      typing,
+      unreadTotal,
+      setChatSearch,
+      selectChat,
+      sendMessage,
+      sendTyping,
+      refreshConversations: fetchConversations,
+    }}>
+      {children}
+    </ChatContext.Provider>
+  );
 };
-
-

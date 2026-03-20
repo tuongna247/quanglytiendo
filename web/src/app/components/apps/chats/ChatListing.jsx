@@ -1,233 +1,122 @@
-import React, { useContext } from "react";
-import Alert from '@mui/material/Alert'
-import Avatar from '@mui/material/Avatar'
-import Badge from '@mui/material/Badge'
-import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import InputAdornment from '@mui/material/InputAdornment'
-import List from '@mui/material/List'
-import ListItemAvatar from '@mui/material/ListItemAvatar'
-import ListItemButton from '@mui/material/ListItemButton'
-import ListItemText from '@mui/material/ListItemText'
-import Menu from '@mui/material/Menu'
-import MenuItem from '@mui/material/MenuItem'
-import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
-import { ChatContext } from "@/app/context/ChatContext/index";
-import Scrollbar from "../../custom-scroll/Scrollbar";
-import { last } from "lodash";
-import { formatDistanceToNowStrict } from "date-fns";
-import { IconChevronDown, IconSearch } from "@tabler/icons-react";
+import React, { useContext } from 'react';
+import Avatar from '@mui/material/Avatar';
+import Badge from '@mui/material/Badge';
+import Box from '@mui/material/Box';
+import InputAdornment from '@mui/material/InputAdornment';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import ListItemText from '@mui/material/ListItemText';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
+import { ChatContext } from '@/app/context/ChatContext/index';
+import Scrollbar from '../../custom-scroll/Scrollbar';
+import { formatDistanceToNowStrict } from 'date-fns';
+import { IconSearch } from '@tabler/icons-react';
 
 const ChatListing = () => {
+  const { conversations, selectedChat, chatSearch, setChatSearch, selectChat, loading, currentUser } = useContext(ChatContext);
 
-  const {
-    chatData,
-    chatSearch,
-    setChatSearch,
-    setSelectedChat,
-    setActiveChatId,
-    activeChatId,
-  } = useContext(ChatContext);
-
-  const filteredChats = chatData.filter((chat) =>
-    chat.name.toLowerCase().includes(chatSearch.toLowerCase())
+  const filtered = conversations.filter(c =>
+    (c.partnerName || '').toLowerCase().includes(chatSearch.toLowerCase()) ||
+    (c.partnerUsername || '').toLowerCase().includes(chatSearch.toLowerCase())
   );
-
-  const getDetails = (conversation) => {
-    let displayText = '';
-
-    const lastMessage = conversation.messages[conversation.messages.length - 1];
-    if (lastMessage) {
-      const sender = lastMessage.senderId === conversation.id ? 'You: ' : '';
-      const message = lastMessage.type === 'image' ? 'Sent a photo' : lastMessage.msg;
-      displayText = `${sender}${message}`;
-    }
-
-    return displayText;
-  };
-
-  const lastActivity = (chat) => last(chat.messages)?.createdAt;
-
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const open = Boolean(anchorEl);
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleChatSelect = (chat) => {
-    const chatId =
-      typeof chat.id === "string" ? parseInt(chat.id, 10) : chat.id;
-    setSelectedChat(chat);
-    setActiveChatId(chatId);
-  };
-
-
-
-  const handleSearchChange = (event) => {
-    setChatSearch(event.target.value);
-  };
-
-
 
   return (
     <div>
-      {/* ------------------------------------------- */}
-      {/* Profile */}
-      {/* ------------------------------------------- */}
-      <Box display={"flex"} alignItems="center" gap="10px" p={3}>
-        <Badge
-          variant="dot"
-          anchorOrigin={{
-            vertical: "bottom",
-            horizontal: "right",
-          }}
-          overlap="circular"
-          color="success"
+      {/* Current user header */}
+      <Box display="flex" alignItems="center" gap="10px" p={3}>
+        <Avatar
+          sx={{ width: 54, height: 54, bgcolor: currentUser?.avatarColor || '#2196f3', fontSize: 22 }}
         >
-          <Avatar
-            alt="Remy Sharp"
-            src="/images/profile/user-1.jpg"
-            sx={{ width: 54, height: 54 }}
-          />
-        </Badge>
+          {(currentUser?.displayName?.[0] || currentUser?.username?.[0] || '?').toUpperCase()}
+        </Avatar>
         <Box>
-          <Typography variant="body1" fontWeight={600}>
-            Mathew Anderson
-          </Typography>
-          <Typography variant="body2">Designer</Typography>
+          <Typography variant="body1" fontWeight={600}>{currentUser?.displayName || currentUser?.username}</Typography>
+          <Typography variant="body2" color="textSecondary">@{currentUser?.username}</Typography>
         </Box>
       </Box>
-      {/* ------------------------------------------- */}
+
       {/* Search */}
-      {/* ------------------------------------------- */}
       <Box px={3} py={1}>
         <TextField
-          id="outlined-search"
-          placeholder="Search contacts"
+          placeholder="Tìm cuộc trò chuyện..."
           size="small"
-          type="search"
-          variant="outlined"
           fullWidth
-          onChange={handleSearchChange}
+          value={chatSearch}
+          onChange={e => setChatSearch(e.target.value)}
           slotProps={{
             input: {
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconSearch size={"16"} />
+                  <IconSearch size={16} />
                 </InputAdornment>
               ),
             }
           }}
         />
       </Box>
-      {/* ------------------------------------------- */}
-      {/* Contact List */}
-      {/* ------------------------------------------- */}
+
+      {/* List */}
       <List sx={{ px: 0 }}>
         <Box px={2.5} pb={1}>
-          <Button
-            id="basic-button"
-            aria-controls={open ? "basic-menu" : undefined}
-            aria-haspopup="true"
-            aria-expanded={open ? "true" : undefined}
-            onClick={handleClick}
-            color="inherit"
-          >
-            Recent Chats <IconChevronDown size="16" />
-          </Button>
-          <Menu
-            id="basic-menu"
-            anchorEl={anchorEl}
-            open={open}
-            onClose={handleClose}
-            slotProps={{
-              list: {
-                "aria-labelledby": "basic-button",
-              }
-            }}
-          >
-            <MenuItem onClick={handleClose}>Sort By Time</MenuItem>
-            <MenuItem onClick={handleClose}>Sort By Unread</MenuItem>
-            <MenuItem onClick={handleClose}>Mark as all Read</MenuItem>
-          </Menu>
+          <Typography variant="caption" color="textSecondary" fontWeight={600}>
+            Tin nhắn gần đây
+          </Typography>
         </Box>
-        <Scrollbar
-          sx={{
-            height: { lg: "calc(100vh - 100px)", md: "100vh" },
-            maxHeight: "600px",
-          }}
-        >
-          {filteredChats && filteredChats.length ? (
-            filteredChats.map((chat) => (
+        <Scrollbar sx={{ height: { lg: 'calc(100vh - 200px)', md: '100vh' }, maxHeight: 560 }}>
+          {loading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : filtered.length === 0 ? (
+            <Box px={3} py={2}>
+              <Typography variant="body2" color="textSecondary">
+                {chatSearch ? 'Không tìm thấy' : 'Chưa có cuộc trò chuyện nào. Kết bạn và nhắn tin từ trang Bạn bè!'}
+              </Typography>
+            </Box>
+          ) : (
+            filtered.map(conv => (
               <ListItemButton
-                key={chat.id}
-                onClick={() => handleChatSelect(chat)}
-                sx={{
-                  mb: 0.5,
-                  py: 2,
-                  px: 3,
-                  alignItems: "start",
-                }}
-                selected={activeChatId === chat.id}
+                key={conv.partnerId}
+                onClick={() => selectChat(conv)}
+                selected={selectedChat?.partnerId === conv.partnerId}
+                sx={{ mb: 0.5, py: 1.5, px: 3, alignItems: 'start' }}
               >
                 <ListItemAvatar>
                   <Badge
-                    color={
-                      chat.status === "online"
-                        ? "success"
-                        : chat.status === "busy"
-                          ? "error"
-                          : chat.status === "away"
-                            ? "warning"
-                            : "secondary"
-                    }
-                    variant="dot"
-                    anchorOrigin={{
-                      vertical: "bottom",
-                      horizontal: "right",
-                    }}
-                    overlap="circular"
+                    badgeContent={conv.unreadCount || 0}
+                    color="primary"
+                    max={99}
                   >
-                    <Avatar
-                      alt="Remy Sharp"
-                      src={chat.thumb}
-                      sx={{ width: 42, height: 42 }}
-                    />
+                    <Avatar sx={{ width: 42, height: 42, bgcolor: conv.partnerAvatarColor || '#2196f3', fontSize: 17 }}>
+                      {(conv.partnerName?.[0] || conv.partnerUsername?.[0] || '?').toUpperCase()}
+                    </Avatar>
                   </Badge>
                 </ListItemAvatar>
                 <ListItemText
                   primary={
                     <Typography variant="subtitle2" fontWeight={600} mb={0.5}>
-                      {chat.name}
+                      {conv.partnerName || conv.partnerUsername}
                     </Typography>
                   }
-                  secondary={getDetails(chat)}
+                  secondary={
+                    <Typography variant="caption" color="textSecondary" noWrap>
+                      {conv.lastMessage || ''}
+                    </Typography>
+                  }
                   sx={{ my: 0 }}
-                  slotProps={{
-                    secondary: {
-                      noWrap: true,
-                    }
-                  }}
                 />
-                <Box sx={{ flexShrink: "0" }} mt={0.5}>
-                  <Typography variant="body2">
-                    {formatDistanceToNowStrict(new Date(lastActivity(chat)), {
-                      addSuffix: false,
-                    })}
-                  </Typography>
+                <Box sx={{ flexShrink: 0 }} mt={0.5}>
+                  {conv.lastMessageAt && (
+                    <Typography variant="caption" color="textSecondary">
+                      {formatDistanceToNowStrict(new Date(conv.lastMessageAt), { addSuffix: false })}
+                    </Typography>
+                  )}
                 </Box>
               </ListItemButton>
             ))
-          ) : (
-            <Box m={2}>
-              <Alert severity="error" variant="filled" sx={{ color: "white" }}>
-                No Contacts Found!
-              </Alert>
-            </Box>
           )}
         </Scrollbar>
       </List>

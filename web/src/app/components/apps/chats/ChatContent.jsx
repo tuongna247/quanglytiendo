@@ -1,269 +1,112 @@
-import React, { useContext } from "react";
-import Avatar from '@mui/material/Avatar'
-import Badge from '@mui/material/Badge'
-import Box from '@mui/material/Box'
-import Divider from '@mui/material/Divider'
-import IconButton from '@mui/material/IconButton'
-import ListItem from '@mui/material/ListItem'
-import ListItemAvatar from '@mui/material/ListItemAvatar'
-import ListItemText from '@mui/material/ListItemText'
-import Stack from '@mui/material/Stack'
+import React, { useContext, useEffect, useRef } from 'react';
+import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Divider from '@mui/material/Divider';
+import ListItem from '@mui/material/ListItem';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
+import ListItemText from '@mui/material/ListItemText';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { IconMenu2 } from '@tabler/icons-react';
+import { ChatContext } from '@/app/context/ChatContext/index';
 
-import Typography from '@mui/material/Typography'
-import useMediaQuery from '@mui/material/useMediaQuery'
-import {
-  IconDotsVertical,
-  IconMenu2,
-  IconPhone,
-  IconVideo,
-} from "@tabler/icons-react";
-import { ChatContext } from "@/app/context/ChatContext/index";
+const ChatContent = ({ toggleChatSidebar }) => {
+  const { selectedChat, currentUser, typing } = useContext(ChatContext);
+  const messagesEndRef = useRef(null);
 
-import { formatDistanceToNowStrict } from "date-fns";
-import ChatInsideSidebar from "./ChatInsideSidebar";
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [selectedChat?.messages, typing]);
 
-import Image from "next/image";
+  if (!selectedChat) {
+    return (
+      <Box display="flex" alignItems="center" p={2}>
+        <Box sx={{ display: { xs: 'flex', lg: 'none' }, mr: '10px' }}>
+          <IconMenu2 stroke={1.5} onClick={toggleChatSidebar} style={{ cursor: 'pointer' }} />
+        </Box>
+        <Typography variant="h4">Chọn cuộc trò chuyện</Typography>
+      </Box>
+    );
+  }
 
-
-
-const ChatContent = ({
-  toggleChatSidebar,
-}) => {
-  const [open, setOpen] = React.useState(true);
-  const lgUp = useMediaQuery((theme) => theme.breakpoints.up("lg"));
-
-  const { selectedChat } = useContext(ChatContext);
+  const messages = selectedChat.messages || [];
 
   return (
-    <Box>
-      {selectedChat ? (
-        <Box>
-          {/* ------------------------------------------- */}
-          {/* Header Part */}
-          {/* ------------------------------------------- */}
-          <Box>
-            <Box display="flex" alignItems="center" p={2}>
-              <Box
+    <Box display="flex" flexDirection="column" height="100%">
+      {/* Header */}
+      <Box display="flex" alignItems="center" p={2}>
+        <Box sx={{ display: { xs: 'block', lg: 'none' }, mr: '10px' }}>
+          <IconMenu2 stroke={1.5} onClick={toggleChatSidebar} style={{ cursor: 'pointer' }} />
+        </Box>
+        <ListItem dense disableGutters>
+          <ListItemAvatar>
+            <Avatar sx={{ width: 40, height: 40, bgcolor: selectedChat.partnerAvatarColor || '#2196f3', fontSize: 16 }}>
+              {(selectedChat.partnerName?.[0] || selectedChat.partnerUsername?.[0] || '?').toUpperCase()}
+            </Avatar>
+          </ListItemAvatar>
+          <ListItemText
+            primary={<Typography variant="h5">{selectedChat.partnerName || selectedChat.partnerUsername}</Typography>}
+            secondary={<Typography variant="caption" color="textSecondary">@{selectedChat.partnerUsername}</Typography>}
+          />
+        </ListItem>
+      </Box>
+      <Divider />
+
+      {/* Messages */}
+      <Box sx={{ flex: 1, overflowY: 'auto', maxHeight: 620, px: 3, py: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {messages.length === 0 && (
+          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+            <Typography color="textSecondary" variant="body2">
+              Bắt đầu cuộc trò chuyện với {selectedChat.partnerName}!
+            </Typography>
+          </Box>
+        )}
+        {messages.map((msg) => {
+          const isMine = msg.senderId === currentUser?.id;
+          return (
+            <Box
+              key={msg.id || msg.createdAt}
+              display="flex"
+              justifyContent={isMine ? 'flex-end' : 'flex-start'}
+            >
+              {!isMine && (
+                <Avatar
+                  sx={{ width: 28, height: 28, bgcolor: selectedChat.partnerAvatarColor, fontSize: 12, mr: 1, mt: 0.5, flexShrink: 0 }}
+                >
+                  {(selectedChat.partnerName?.[0] || '?').toUpperCase()}
+                </Avatar>
+              )}
+              <Paper
+                elevation={0}
                 sx={{
-                  display: { xs: "block", md: "block", lg: "none" },
-                  mr: "10px",
+                  px: 1.5, py: 0.75,
+                  maxWidth: '70%',
+                  borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  bgcolor: isMine ? 'primary.main' : 'grey.100',
+                  color: isMine ? 'primary.contrastText' : 'text.primary',
                 }}
               >
-                <IconMenu2 stroke={1.5} onClick={toggleChatSidebar} />
-              </Box>
-              <ListItem key={selectedChat.id} dense disableGutters>
-                <ListItemAvatar>
-                  <Badge
-                    color={
-                      selectedChat.status === "online"
-                        ? "success"
-                        : selectedChat.status === "busy"
-                          ? "error"
-                          : selectedChat.status === "away"
-                            ? "warning"
-                            : "secondary"
-                    }
-                    variant="dot"
-                    anchorOrigin={{
-                      vertical: "bottom",
-                      horizontal: "right",
-                    }}
-                    overlap="circular"
-                  >
-                    <Avatar alt={selectedChat.name} src={selectedChat.thumb} sx={{ width: 40, height: 40 }} />
-                  </Badge>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={
-                    <Typography variant="h5">{selectedChat.name}</Typography>
-                  }
-                  secondary={selectedChat.status}
-                />
-              </ListItem>
-              <Stack direction={"row"}>
-                <IconButton aria-label="phone">
-                  <IconPhone stroke={1.5} />
-                </IconButton>
-                <IconButton aria-label="video">
-                  <IconVideo stroke={1.5} />
-                </IconButton>
-                <IconButton aria-label="sidebar" onClick={() => setOpen(!open)}>
-                  <IconDotsVertical stroke={1.5} />
-                </IconButton>
-              </Stack>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {msg.content}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.65, display: 'block', textAlign: 'right', fontSize: 10, mt: 0.25 }}>
+                  {new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                </Typography>
+              </Paper>
             </Box>
-            <Divider />
+          );
+        })}
+        {typing && (
+          <Box display="flex" alignItems="center" gap={0.5} pl={5}>
+            <Typography variant="caption" color="textSecondary" fontStyle="italic">
+              {selectedChat.partnerName} đang nhập...
+            </Typography>
           </Box>
-          {/* ------------------------------------------- */}
-          {/* Chat Content */}
-          {/* ------------------------------------------- */}
-
-          <Box display="flex">
-            {/* ------------------------------------------- */}
-            {/* Chat msges */}
-            {/* ------------------------------------------- */}
-
-            <Box width="100%">
-              <Box
-                sx={{
-                  height: "650px",
-                  overflow: "auto",
-                  maxHeight: "800px",
-                }}
-              >
-                <Box p={3}>
-                  {selectedChat.messages.map((chat) => {
-                    return (
-                      <Box key={chat.id + chat.createdAt}>
-                        {selectedChat.id === chat.senderId ? (
-                          <Box display="flex">
-                            <ListItemAvatar>
-                              <Avatar
-                                alt={selectedChat.name}
-                                src={selectedChat.thumb}
-                                sx={{ width: 40, height: 40 }}
-                              />
-                            </ListItemAvatar>
-                            <Box>
-                              {chat.createdAt ? (
-                                <Typography
-                                  variant="body2"
-                                  color="grey.400"
-                                  mb={1}
-                                >
-                                  {selectedChat.name},{" "}
-                                  {formatDistanceToNowStrict(
-                                    new Date(chat.createdAt),
-                                    {
-                                      addSuffix: false,
-                                    }
-                                  )}{" "}
-                                  ago
-                                </Typography>
-                              ) : null}
-                              {chat.type === "text" ? (
-                                <Box
-                                  mb={2}
-                                  sx={{
-                                    p: 1,
-                                    backgroundColor: "grey.100",
-                                    mr: "auto",
-                                    maxWidth: "320px",
-                                  }}
-                                >
-                                  {chat.msg}
-                                </Box>
-                              ) : null}
-                              {chat.type === "image" ? (
-                                <Box
-                                  mb={1}
-                                  sx={{
-                                    overflow: "hidden",
-                                    lineHeight: "0px",
-                                  }}
-                                >
-                                  <Image
-                                    src={chat.msg}
-                                    alt="attach"
-                                    width="150" height="150"
-                                  />
-                                </Box>
-                              ) : null}
-                            </Box>
-                          </Box>
-                        ) : (
-                          <Box
-                            mb={1}
-                            display="flex"
-                            alignItems="flex-end"
-                            flexDirection="row-reverse"
-                          >
-                            <Box
-                              alignItems="flex-end"
-                              display="flex"
-                              flexDirection={"column"}
-                            >
-                              {chat.createdAt ? (
-                                <Typography
-                                  variant="body2"
-                                  color="grey.400"
-                                  mb={1}
-                                >
-                                  {formatDistanceToNowStrict(
-                                    new Date(chat.createdAt),
-                                    {
-                                      addSuffix: false,
-                                    }
-                                  )}{" "}
-                                  ago
-                                </Typography>
-                              ) : null}
-                              {chat.type === "text" ? (
-                                <Box
-                                  mb={1}
-                                  sx={{
-                                    p: 1,
-                                    backgroundColor: "primary.light",
-                                    ml: "auto",
-                                    maxWidth: "320px",
-                                  }}
-                                >
-                                  {chat.msg}
-                                </Box>
-                              ) : null}
-                              {chat.type === "image" ? (
-                                <Box
-                                  mb={1}
-                                  sx={{ overflow: "hidden", lineHeight: "0px" }}
-                                >
-                                  <Image
-                                    src={chat.msg}
-                                    alt="attach"
-                                    width="250" height="165"
-                                  />
-                                </Box>
-                              ) : null}
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
-            </Box>
-
-            {/* ------------------------------------------- */}
-            {/* Chat right sidebar Content */}
-            {/* ------------------------------------------- */}
-            {open ? (
-              <Box flexShrink={0}>
-                <ChatInsideSidebar
-                  isInSidebar={lgUp ? open : !open}
-                  chat={selectedChat}
-                />
-              </Box>
-            ) : (
-              ""
-            )}
-          </Box>
-        </Box>
-      ) : (
-        <Box display="flex" alignItems="center" p={2} pb={1} pt={1}>
-          {/* ------------------------------------------- */}
-          {/* if No Chat Content */}
-          {/* ------------------------------------------- */}
-          <Box
-            sx={{
-              display: { xs: "flex", md: "flex", lg: "none" },
-              mr: "10px",
-            }}
-          >
-            <IconMenu2 stroke={1.5} onClick={toggleChatSidebar} />
-          </Box>
-          <Typography variant="h4">Select Chat</Typography>
-        </Box>
-      )}
+        )}
+        <div ref={messagesEndRef} />
+      </Box>
     </Box>
   );
 };
