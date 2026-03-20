@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Select from '@mui/material/Select';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -36,7 +37,7 @@ import { getActiveVocab, tokenizeVerse } from '@/app/lib/bibleWordWise';
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
 import { BOOK_ID_TO_NAME, BOOK_NAME_TO_ID, parsePassage } from '@/app/lib/bibleUtils';
-import { BIBLE_READING_PLAN, getReadingForDate, DAY_LABELS, DAYS } from '@/app/lib/bibleReadingPlan';
+import { BIBLE_READING_PLAN, DAY_LABELS, DAYS } from '@/app/lib/bibleReadingPlan';
 import { useAuth } from '@/app/context/AuthContext';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -443,8 +444,19 @@ function verseHasHardWords(text, vocab) {
 }
 
 // ── Bible text renderer ──────────────────────────────────────────────────────
-function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, activeColor, onHighlight, fontFamily, fontSize, highlightedRange, wordWise, wordWiseVocab }) {
+function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, activeColor, onHighlight, onHighlightWithColor, fontFamily, fontSize, highlightedRange, wordWise, wordWiseVocab }) {
   const seenWords = new Set();
+  const [ctxMenu, setCtxMenu] = useState(null); // { mouseX, mouseY, verseKey }
+
+  function handleContextMenu(e, key) {
+    e.preventDefault();
+    setCtxMenu({ mouseX: e.clientX, mouseY: e.clientY, verseKey: key });
+  }
+
+  function handleCtxColor(color) {
+    if (ctxMenu && onHighlightWithColor) onHighlightWithColor(ctxMenu.verseKey, color);
+    setCtxMenu(null);
+  }
   if (paragraphMode) {
     return (
       <Box sx={{ fontFamily, fontSize, lineHeight: 2 }}>
@@ -466,6 +478,7 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                       key={vIdx}
                       component="span"
                       onClick={() => onHighlight(key)}
+                      onContextMenu={e => handleContextMenu(e, key)}
                       sx={{
                         cursor: 'pointer',
                         bgcolor: bg || (isInRange ? 'primary.50' : 'transparent'),
@@ -510,6 +523,7 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                 <Box
                   key={vIdx}
                   onClick={() => onHighlight(key)}
+                  onContextMenu={e => handleContextMenu(e, key)}
                   sx={{
                     display: 'flex', gap: 1.5, mb: 0.5, py: 0.3, px: 1, borderRadius: 1,
                     bgcolor: bg || (isInRange ? 'primary.50' : 'transparent'),
@@ -531,6 +545,53 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
           </Box>
         );
       })}
+
+      {/* Right-click color picker menu */}
+      <Menu
+        open={Boolean(ctxMenu)}
+        onClose={() => setCtxMenu(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={ctxMenu ? { top: ctxMenu.mouseY, left: ctxMenu.mouseX } : undefined}
+        slotProps={{ paper: { sx: { borderRadius: 2, p: 0.5 } } }}
+      >
+        <Box sx={{ px: 1, py: 0.5 }}>
+          <Typography variant="caption" color="textSecondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+            Tô màu câu {ctxMenu?.verseKey}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+            {HIGHLIGHT_COLORS.filter(c => c.value !== null).map(c => (
+              <Tooltip key={c.label} title={c.label}>
+                <Box
+                  onClick={() => handleCtxColor(c.value)}
+                  sx={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    bgcolor: c.bg, border: '1px solid #ccc',
+                    cursor: 'pointer',
+                    '&:hover': { transform: 'scale(1.2)', border: '2px solid #1976d2' },
+                    transition: 'transform 0.1s',
+                  }}
+                />
+              </Tooltip>
+            ))}
+            {/* Remove highlight */}
+            <Tooltip title="Xóa tô màu">
+              <Box
+                onClick={() => handleCtxColor(null)}
+                sx={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  bgcolor: '#f5f5f5', border: '1px dashed #bbb',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, color: '#999',
+                  '&:hover': { transform: 'scale(1.2)', border: '2px dashed #d32f2f', color: '#d32f2f' },
+                  transition: 'transform 0.1s',
+                }}
+              >
+                ✕
+              </Box>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Menu>
     </Box>
   );
 }
@@ -560,6 +621,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
   });
   const wordWiseVocab = wordWise ? getActiveVocab(wordWiseLevel) : null;
   const hlKey = `qlTD_hl_${selectedBook}_${chapterFrom}`;
+  const hlSaveTimerRef = useRef(null);
 
   useEffect(() => {
     loadBible().then(data => { setBible(data); setLoading(false); });
@@ -594,12 +656,24 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
     try { localStorage.setItem('qlTD_bible_ww_level', String(v)); } catch {}
   }
 
+  // Load highlights: try API first, fallback to localStorage
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(hlKey);
-      setHighlights(raw ? JSON.parse(raw) : {});
-    } catch { setHighlights({}); }
-  }, [hlKey]);
+    let cancelled = false;
+    apiClient.get(`/api/bible-highlights?book=${selectedBook}&chapter=${chapterFrom}`)
+      .then(data => {
+        if (!cancelled) setHighlights(data && typeof data === 'object' ? data : {});
+      })
+      .catch(() => {
+        if (!cancelled) {
+          try {
+            const raw = localStorage.getItem(hlKey);
+            setHighlights(raw ? JSON.parse(raw) : {});
+          } catch { setHighlights({}); }
+        }
+      });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBook, chapterFrom]);
 
   useEffect(() => {
     onNavigate(selectedBook, chapterFrom, chapterTo);
@@ -644,35 +718,73 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
       const next = { ...prev };
       if (activeColor === null || prev[key] === activeColor) delete next[key];
       else next[key] = activeColor;
+      // Save to localStorage immediately
       try { localStorage.setItem(hlKey, JSON.stringify(next)); } catch {}
+      // Debounce API save (500ms)
+      clearTimeout(hlSaveTimerRef.current);
+      hlSaveTimerRef.current = setTimeout(() => {
+        apiClient.put('/api/bible-highlights', { bookId: selectedBook, chapter: chapterFrom, highlights: next }).catch(() => {});
+      }, 500);
+      return next;
+    });
+  }
+
+  function applyHighlightWithColor(key, color) {
+    setHighlights(prev => {
+      const next = { ...prev };
+      if (color === null) delete next[key];
+      else next[key] = color;
+      try { localStorage.setItem(hlKey, JSON.stringify(next)); } catch {}
+      clearTimeout(hlSaveTimerRef.current);
+      hlSaveTimerRef.current = setTimeout(() => {
+        apiClient.put('/api/bible-highlights', { bookId: selectedBook, chapter: chapterFrom, highlights: next }).catch(() => {});
+      }, 500);
       return next;
     });
   }
 
   const todayStr = toLocalDateStr(new Date());
-  const todayReading = getReadingForDate(todayStr);
 
-  const highlightedRange = selectedBook === initBook ? { chFrom: initFrom, chTo: initTo } : null;
-
-  // Find which plan date corresponds to the current passage being read
-  const planDateForCurrent = (() => {
-    const parsed = todayReading ? parsePassage(todayReading.passage) : null;
-    if (parsed && parsed.bookId === selectedBook &&
-        chapterFrom >= parsed.chFrom && chapterFrom <= parsed.chTo) {
-      return todayStr;
-    }
-    // Search nearby weeks for a matching passage
-    for (const week of (activePlan || BIBLE_READING_PLAN)) {
+  // Compute today's reading from activePlan (not the static plan)
+  const todayReading = (() => {
+    const planToUse = activePlan || BIBLE_READING_PLAN;
+    for (const week of planToUse) {
+      const startD = new Date(week.startDate + 'T00:00:00');
       for (let i = 0; i < DAY_KEYS.length; i++) {
-        const p = parsePassage(week[DAY_KEYS[i]] || '');
-        if (p && p.bookId === selectedBook && chapterFrom >= p.chFrom && chapterFrom <= p.chTo) {
-          const d = new Date(week.startDate + 'T00:00:00');
-          d.setDate(d.getDate() + i);
-          return toLocalDateStr(d);
+        const d = new Date(startD);
+        d.setDate(startD.getDate() + i);
+        if (toLocalDateStr(d) === todayStr && week[DAY_KEYS[i]]) {
+          return { passage: week[DAY_KEYS[i]] };
         }
       }
     }
     return null;
+  })();
+
+  const highlightedRange = selectedBook === initBook ? { chFrom: initFrom, chTo: initTo } : null;
+
+  // Find which plan date corresponds to the current passage being read.
+  // Uses activePlan (user's custom plan) instead of the static plan.
+  // Range overlap: [chapterFrom..chapterTo] ∩ [p.chFrom..p.chTo] ≠ ∅
+  const planDateForCurrent = (() => {
+    const planToUse = activePlan || BIBLE_READING_PLAN;
+    let firstMatch = null;
+    for (const week of planToUse) {
+      const startD = new Date(week.startDate + 'T00:00:00');
+      for (let i = 0; i < DAY_KEYS.length; i++) {
+        const p = parsePassage(week[DAY_KEYS[i]] || '');
+        if (!p || p.bookId !== selectedBook) continue;
+        // Proper range overlap check
+        if (chapterFrom <= p.chTo && chapterTo >= p.chFrom) {
+          const d = new Date(startD);
+          d.setDate(startD.getDate() + i);
+          const dateStr = toLocalDateStr(d);
+          if (dateStr === todayStr) return todayStr; // today's reading → return immediately
+          if (!firstMatch) firstMatch = dateStr;
+        }
+      }
+    }
+    return firstMatch;
   })();
   const isCurrentDone = planDateForCurrent ? !!completed[planDateForCurrent] : false;
 
@@ -696,7 +808,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
           />
           {loading ? <CircularProgress /> : (
             <>
-              <BibleTextContent chapters={displayChapters} chapterOffset={chapterFrom} paragraphMode={paragraphMode} highlights={highlights} activeColor={activeColor} onHighlight={applyHighlight} fontFamily={fontFamily} fontSize={fontSize} highlightedRange={highlightedRange} wordWise={wordWise && !!bibleNIV} wordWiseVocab={wordWiseVocab} />
+              <BibleTextContent chapters={displayChapters} chapterOffset={chapterFrom} paragraphMode={paragraphMode} highlights={highlights} activeColor={activeColor} onHighlight={applyHighlight} onHighlightWithColor={applyHighlightWithColor} fontFamily={fontFamily} fontSize={fontSize} highlightedRange={highlightedRange} wordWise={wordWise && !!bibleNIV} wordWiseVocab={wordWiseVocab} />
               {planDateForCurrent && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                   <Button
@@ -817,6 +929,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
                     highlights={highlights}
                     activeColor={activeColor}
                     onHighlight={applyHighlight}
+                    onHighlightWithColor={applyHighlightWithColor}
                     fontFamily={fontFamily}
                     fontSize={fontSize}
                     highlightedRange={highlightedRange}
@@ -873,6 +986,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
                 highlights={highlights}
                 activeColor={activeColor}
                 onHighlight={applyHighlight}
+                onHighlightWithColor={applyHighlightWithColor}
                 fontFamily={fontFamily}
                 fontSize={fontSize}
                 highlightedRange={highlightedRange}
@@ -1160,19 +1274,29 @@ function BibleReader() {
   }, []);
 
   async function toggleCompleted(dateStr) {
+    if (!dateStr) return;
     const wasCompleted = !!completed[dateStr];
-    setToggling(true);
+    // Optimistic update immediately
     setCompleted(prev => {
       const next = { ...prev };
       if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
       return next;
     });
+    setToggling(true);
     try {
       await apiClient.post('/api/bible-reading-log', { date: dateStr, completed: !wasCompleted });
+      // Confirm state from server (avoids race with initial load overwriting optimistic update)
+      const data = await apiClient.get('/api/bible-reading-log');
+      if (Array.isArray(data)) {
+        const map = {};
+        data.forEach(d => { map[d] = true; });
+        setCompleted(map);
+      }
     } catch {
+      // Rollback
       setCompleted(prev => {
         const next = { ...prev };
-        if (next[dateStr]) delete next[dateStr]; else next[dateStr] = true;
+        if (wasCompleted) next[dateStr] = true; else delete next[dateStr];
         return next;
       });
     } finally {

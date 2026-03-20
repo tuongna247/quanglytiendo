@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<UserShareSettings> UserShareSettings => Set<UserShareSettings>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<BibleVerseHighlight> BibleVerseHighlights => Set<BibleVerseHighlight>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -394,6 +395,20 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(x => x.ReceiverId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ── BibleVerseHighlight ──────────────────────────────────────────────────
+        modelBuilder.Entity<BibleVerseHighlight>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.HighlightJson).HasColumnType("nvarchar(max)");
+            e.HasIndex(x => new { x.UserId, x.BookId, x.Chapter }).IsUnique();
+            e.HasOne(x => x.User)
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
