@@ -20,6 +20,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${API_URL}/api/:path*`,
       },
+      {
+        source: '/hubs/:path*',
+        destination: `${API_URL}/hubs/:path*`,
+      },
     ];
   },
 };

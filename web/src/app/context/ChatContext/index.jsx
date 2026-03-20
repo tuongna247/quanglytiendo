@@ -27,9 +27,7 @@ export const ChatProvider = ({ children }) => {
   const connectionRef = useRef(null);
   const typingTimerRef = useRef(null);
 
-  const currentUser = typeof window !== 'undefined'
-    ? JSON.parse(localStorage.getItem('qlTD_user') || 'null')
-    : null;
+  const [currentUser, setCurrentUser] = useState(null);
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -46,6 +44,7 @@ export const ChatProvider = ({ children }) => {
 
   useEffect(() => {
     fetchConversations();
+    apiClient.get('/api/auth/me').then(data => { if (data) setCurrentUser(data); }).catch(() => {});
   }, [fetchConversations]);
 
   // Connect SignalR
