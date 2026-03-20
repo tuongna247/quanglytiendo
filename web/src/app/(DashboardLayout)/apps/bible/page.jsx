@@ -29,7 +29,7 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
-import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings, IconColumns } from '@tabler/icons-react';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -285,6 +285,17 @@ async function loadBible() {
   return bibleCache;
 }
 
+let bibleNIVCache = null;
+async function loadBibleNIV() {
+  if (bibleNIVCache) return bibleNIVCache;
+  const res = await fetch('/bible_NIV.json');
+  const data = await res.json();
+  const map = {};
+  data.forEach(book => { map[book.id] = book.chapters; });
+  bibleNIVCache = map;
+  return bibleNIVCache;
+}
+
 function toLocalDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -298,7 +309,7 @@ function getCurrentWeekIdx() {
 }
 
 // ── Highlight toolbar ────────────────────────────────────────────────────────
-function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize }) {
+function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize, dualVersion, onDualVersionToggle }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', py: 1, px: 0.5, mb: 1 }}>
       {/* Highlight colors */}
@@ -342,6 +353,12 @@ function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagra
       <Tooltip title={spotlight ? 'Tắt spotlight' : 'Spotlight — chỉ hiện nội dung KT'}>
         <IconButton size="small" onClick={onSpotlight} color={spotlight ? 'warning' : 'default'}>
           {spotlight ? <IconArrowsMinimize size={18} /> : <IconArrowsMaximize size={18} />}
+        </IconButton>
+      </Tooltip>
+      {/* Dual version toggle */}
+      <Tooltip title={dualVersion ? 'Đang song ngữ VI+NIV — bấm để ẩn NIV' : 'Hiện song ngữ VI + NIV (song song)'}>
+        <IconButton size="small" onClick={onDualVersionToggle} color={dualVersion ? 'primary' : 'default'}>
+          <IconColumns size={18} />
         </IconButton>
       </Tooltip>
     </Box>
@@ -432,6 +449,7 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
 // ── Tab 1: Bible Reader ───────────────────────────────────────────────────────
 function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling, onToggleCompleted, activePlan }) {
   const [bible, setBible] = useState(null);
+  const [bibleNIV, setBibleNIV] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState(initBook);
   const [chapterFrom, setChapterFrom] = useState(initFrom);
@@ -442,11 +460,28 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
   const [fontSize, setFontSize] = useState(16);
   const [activeColor, setActiveColor] = useState('#FFF176');
   const [highlights, setHighlights] = useState({});
+  const [dualVersion, setDualVersion] = useState(() => {
+    try { return localStorage.getItem('qlTD_bible_dual') === '1'; } catch { return false; }
+  });
   const hlKey = `qlTD_hl_${selectedBook}_${chapterFrom}`;
 
   useEffect(() => {
     loadBible().then(data => { setBible(data); setLoading(false); });
   }, []);
+
+  useEffect(() => {
+    if (dualVersion && !bibleNIV) {
+      loadBibleNIV().then(data => setBibleNIV(data));
+    }
+  }, [dualVersion, bibleNIV]);
+
+  function toggleDualVersion() {
+    setDualVersion(prev => {
+      const next = !prev;
+      try { localStorage.setItem('qlTD_bible_dual', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }
 
   useEffect(() => {
     try {
@@ -466,6 +501,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
 
   // Chapters to display: from chapterFrom to chapterTo (inclusive)
   const displayChapters = bookChapters.slice(chapterFrom - 1, chapterTo);
+  const displayChaptersNIV = (dualVersion && bibleNIV) ? (bibleNIV[selectedBook] || []).slice(chapterFrom - 1, chapterTo) : [];
 
   function goBook(bookId, from = 1) {
     setSelectedBook(bookId);
@@ -544,6 +580,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
             spotlight={spotlight} onSpotlight={() => setSpotlight(false)}
             fontFamily={fontFamily} onFont={setFontFamily}
             fontSize={fontSize} onFontSize={setFontSize}
+            dualVersion={dualVersion} onDualVersionToggle={toggleDualVersion}
           />
           {loading ? <CircularProgress /> : (
             <>
@@ -632,6 +669,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
             spotlight={spotlight} onSpotlight={() => setSpotlight(true)}
             fontFamily={fontFamily} onFont={setFontFamily}
             fontSize={fontSize} onFontSize={setFontSize}
+            dualVersion={dualVersion} onDualVersionToggle={toggleDualVersion}
           />
         </CardContent>
       </Card>
@@ -641,6 +679,64 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
         <CardContent>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+          ) : dualVersion ? (
+            <>
+              {/* Dual-version: VI left, NIV right */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 2 }}>
+                <Box>
+                  <Chip label="Tiếng Việt (1926)" size="small" color="primary" variant="outlined" sx={{ mb: 1.5 }} />
+                  <BibleTextContent
+                    chapters={displayChapters}
+                    chapterOffset={chapterFrom}
+                    paragraphMode={paragraphMode}
+                    highlights={highlights}
+                    activeColor={activeColor}
+                    onHighlight={applyHighlight}
+                    fontFamily={fontFamily}
+                    fontSize={fontSize}
+                    highlightedRange={highlightedRange}
+                  />
+                </Box>
+                <Box sx={{ borderLeft: { xs: 'none', md: '1px solid' }, borderTop: { xs: '1px solid', md: 'none' }, borderColor: 'divider', pl: { xs: 0, md: 2 }, pt: { xs: 2, md: 0 } }}>
+                  <Chip label="English (NIV)" size="small" color="success" variant="outlined" sx={{ mb: 1.5 }} />
+                  {!bibleNIV ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
+                  ) : (
+                    <BibleTextContent
+                      chapters={displayChaptersNIV}
+                      chapterOffset={chapterFrom}
+                      paragraphMode={paragraphMode}
+                      highlights={{}}
+                      activeColor={null}
+                      onHighlight={() => {}}
+                      fontFamily={fontFamily}
+                      fontSize={fontSize}
+                      highlightedRange={null}
+                    />
+                  )}
+                </Box>
+              </Box>
+              <Divider sx={{ my: 2 }} />
+              {planDateForCurrent && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                  <Button
+                    variant={isCurrentDone ? 'contained' : 'outlined'}
+                    color={isCurrentDone ? 'success' : 'primary'}
+                    size="large"
+                    startIcon={isCurrentDone ? <IconCircleCheck size={20} /> : <IconCircle size={20} />}
+                    disabled={toggling}
+                    onClick={() => onToggleCompleted(planDateForCurrent)}
+                    sx={{ minWidth: 200, borderRadius: 3 }}
+                  >
+                    {toggling ? '...' : isCurrentDone ? 'Đã đọc xong ✓' : 'Đánh dấu đã đọc'}
+                  </Button>
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Button startIcon={<IconChevronLeft size={16} />} onClick={prevChapter} disabled={selectedBook === BOOK_ORDER[0] && chapterFrom === 1}>Trước</Button>
+                <Button endIcon={<IconChevronRight size={16} />} onClick={nextChapter}>Tiếp</Button>
+              </Box>
+            </>
           ) : (
             <>
               <BibleTextContent
