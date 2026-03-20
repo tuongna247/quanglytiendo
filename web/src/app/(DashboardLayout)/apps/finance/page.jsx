@@ -27,7 +27,7 @@ import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
 import Tooltip from '@mui/material/Tooltip';
-import { IconPlus, IconTrash, IconEdit, IconPlayerPlay, IconCheck, IconHistory, IconDownload, IconUpload } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconEdit, IconPlayerPlay, IconCheck, IconHistory, IconDownload, IconUpload, IconChevronLeft, IconChevronRight, IconCalendar } from '@tabler/icons-react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
@@ -52,7 +52,11 @@ function toLocalDateStr(date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getPeriodRange(periodIdx) {
+function monthKey(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function getPeriodRange(periodIdx, selectedMonth) {
   const now = new Date();
   let from, to;
   if (periodIdx === 0) {
@@ -64,8 +68,11 @@ function getPeriodRange(periodIdx) {
     from = toLocalDateStr(monday);
     to = toLocalDateStr(sunday);
   } else if (periodIdx === 2) {
-    from = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
-    to = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    // Use selectedMonth for monthly view
+    const [y, m] = selectedMonth.split('-').map(Number);
+    from = `${monthKey(y, m)}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    to = `${monthKey(y, m)}-${String(lastDay).padStart(2, '0')}`;
   } else {
     from = `${now.getFullYear()}-01-01`;
     to = `${now.getFullYear()}-12-31`;
@@ -342,8 +349,11 @@ function FixedExpensesTab({ setError, setSuccess }) {
 
 // ── Main Finance Page ─────────────────────────────────────────────────────────
 export default function FinancePage() {
-  const [periodTab, setPeriodTab] = useState(2); // 0-3 = period, 4 = fixed
+  const now = new Date();
+  const [periodTab, setPeriodTab] = useState(2); // 0=Ngày,1=Tuần,2=Tháng,3=Năm,4=Cố định,5=Bạn bè
+  const [selectedMonth, setSelectedMonth] = useState(() => monthKey(now.getFullYear(), now.getMonth() + 1));
   const [transactions, setTransactions] = useState([]);
+  const [fixedItems, setFixedItems] = useState([]); // for combined monthly view
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyTxForm);
@@ -351,36 +361,57 @@ export default function FinancePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
-  const [importPreview, setImportPreview] = useState(null); // { rows, errors }
+  const [importPreview, setImportPreview] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importDone, setImportDone] = useState(false);
   const [friendUserId, setFriendUserId] = useState(null);
   const [friendSummary, setFriendSummary] = useState(null);
   const [friendShared, setFriendShared] = useState(true);
   const [loadingFriend, setLoadingFriend] = useState(false);
-  const [friendMonth, setFriendMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
+  const [friendMonth, setFriendMonth] = useState(() => monthKey(now.getFullYear(), now.getMonth() + 1));
 
   const isFixedTab = periodTab === 4;
+  const isMonthTab = periodTab === 2;
+
+  // Month navigation helpers
+  const [selYear, selMonth] = selectedMonth.split('-').map(Number);
+  function prevMonth() {
+    const d = new Date(selYear, selMonth - 2, 1);
+    setSelectedMonth(monthKey(d.getFullYear(), d.getMonth() + 1));
+  }
+  function nextMonth() {
+    const d = new Date(selYear, selMonth, 1);
+    setSelectedMonth(monthKey(d.getFullYear(), d.getMonth() + 1));
+  }
+  const isCurrentMonth = selectedMonth === monthKey(now.getFullYear(), now.getMonth() + 1);
 
   async function fetchTransactions() {
     if (isFixedTab) return;
     setLoading(true);
-    const { from, to } = getPeriodRange(periodTab);
+    const { from, to } = getPeriodRange(periodTab, selectedMonth);
     try {
       const data = await apiClient.get('/api/transactions', { from, to });
       setTransactions(Array.isArray(data) ? data : []);
+      // On monthly tab, also load fixed items to show unapplied ones
+      if (isMonthTab) {
+        const fixed = await apiClient.get('/api/fixed-expenses').catch(() => []);
+        setFixedItems(Array.isArray(fixed) ? fixed.filter(f => f.isActive) : []);
+      }
     } catch (e) { setTransactions([]); setError(e.message); }
     finally { setLoading(false); }
   }
 
-  useEffect(() => { fetchTransactions(); }, [periodTab]);
+  useEffect(() => { fetchTransactions(); }, [periodTab, selectedMonth]);
 
   const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
   const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
-  const balance = income - expense;
+  // Fixed items not yet applied this month — count as planned
+  const unappliedFixed = isMonthTab ? fixedItems.filter(f => !f.isAppliedThisMonth || selectedMonth !== monthKey(now.getFullYear(), now.getMonth() + 1)) : [];
+  const plannedIncome = isMonthTab ? fixedItems.filter(f => f.type === 'income' && !f.isAppliedThisMonth).reduce((s, f) => s + f.amount, 0) : 0;
+  const plannedExpense = isMonthTab ? fixedItems.filter(f => f.type === 'expense' && !f.isAppliedThisMonth).reduce((s, f) => s + f.amount, 0) : 0;
+  const totalIncome = income + (isCurrentMonth ? plannedIncome : 0);
+  const totalExpense = expense + (isCurrentMonth ? plannedExpense : 0);
+  const balance = totalIncome - totalExpense;
 
   async function handleSave() {
     if (!form.amount || !form.category) return;
@@ -464,23 +495,29 @@ export default function FinancePage() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
-              <CardContent>
+              <CardContent sx={{ pb: '12px !important' }}>
                 <Typography variant="subtitle2" color="textSecondary">Thu nhập</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{formatVND(income)}</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{formatVND(isMonthTab ? totalIncome : income)}</Typography>
+                {isMonthTab && income > 0 && plannedIncome > 0 && isCurrentMonth && (
+                  <Typography variant="caption" color="textSecondary">Thực tế: {formatVND(income)} + Dự kiến: {formatVND(plannedIncome)}</Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'error.main' }}>
-              <CardContent>
+              <CardContent sx={{ pb: '12px !important' }}>
                 <Typography variant="subtitle2" color="textSecondary">Chi tiêu</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>{formatVND(expense)}</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>{formatVND(isMonthTab ? totalExpense : expense)}</Typography>
+                {isMonthTab && expense > 0 && plannedExpense > 0 && isCurrentMonth && (
+                  <Typography variant="caption" color="textSecondary">Thực tế: {formatVND(expense)} + Cố định chưa ghi: {formatVND(plannedExpense)}</Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: balance >= 0 ? 'primary.main' : 'warning.main' }}>
-              <CardContent>
+              <CardContent sx={{ pb: '12px !important' }}>
                 <Typography variant="subtitle2" color="textSecondary">Số dư</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: balance >= 0 ? 'primary.main' : 'warning.main' }}>{formatVND(balance)}</Typography>
               </CardContent>
@@ -490,7 +527,7 @@ export default function FinancePage() {
       )}
 
       {/* Tabs */}
-      <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 0 }}>
         <Tabs value={periodTab} onChange={(_, v) => { setPeriodTab(v); if (v !== 5) setFriendUserId(null); }} sx={{ flex: 1 }}>
           {PERIOD_TABS.map((t, i) => <Tab key={i} label={t} />)}
           <Tab label="Cố định" />
@@ -509,6 +546,21 @@ export default function FinancePage() {
           </>
         )}
       </Box>
+
+      {/* Month navigator — only on Tháng tab */}
+      {isMonthTab && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, py: 1.5, mb: 2, bgcolor: 'action.hover', borderRadius: 2, mt: 1 }}>
+          <IconButton size="small" onClick={prevMonth}><IconChevronLeft size={20} /></IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconCalendar size={18} />
+            <Typography variant="h6" sx={{ fontWeight: 700, minWidth: 140, textAlign: 'center' }}>
+              Tháng {selMonth}/{selYear}
+            </Typography>
+            {isCurrentMonth && <Chip label="Tháng này" size="small" color="primary" />}
+          </Box>
+          <IconButton size="small" onClick={nextMonth} disabled={isCurrentMonth}><IconChevronRight size={20} /></IconButton>
+        </Box>
+      )}
 
       {/* Friend finance summary tab */}
       {periodTab === 5 && (
@@ -616,23 +668,47 @@ export default function FinancePage() {
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={5} align="center">Đang tải...</TableCell></TableRow>
-                ) : transactions.length === 0 ? (
+                ) : transactions.length === 0 && (!isMonthTab || fixedItems.length === 0) ? (
                   <TableRow><TableCell colSpan={5} align="center">Chưa có giao dịch nào</TableCell></TableRow>
-                ) : transactions.map(t => (
-                  <TableRow key={t.id} hover>
-                    <TableCell><Typography variant="caption">{new Date(t.date + 'T00:00:00').toLocaleDateString('vi-VN')}</Typography></TableCell>
-                    <TableCell><Chip label={t.category} size="small" variant="outlined" /></TableCell>
-                    <TableCell><Typography variant="body2">{t.description || '-'}</Typography></TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: t.type === 'income' ? 'success.main' : 'error.main' }}>
-                        {t.type === 'income' ? '+' : '-'}{formatVND(t.amount)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(t.id)}><IconTrash size={16} /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                ) : (
+                  <>
+                    {transactions.map(t => (
+                      <TableRow key={t.id} hover>
+                        <TableCell><Typography variant="caption">{new Date(t.date + 'T00:00:00').toLocaleDateString('vi-VN')}</Typography></TableCell>
+                        <TableCell><Chip label={t.category} size="small" variant="outlined" /></TableCell>
+                        <TableCell><Typography variant="body2">{t.description || '-'}</Typography></TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: t.type === 'income' ? 'success.main' : 'error.main' }}>
+                            {t.type === 'income' ? '+' : '-'}{formatVND(t.amount)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <IconButton size="small" color="error" onClick={() => handleDelete(t.id)}><IconTrash size={16} /></IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Unapplied fixed items shown as planned rows on current month */}
+                    {isMonthTab && isCurrentMonth && fixedItems.filter(f => !f.isAppliedThisMonth).map(f => (
+                      <TableRow key={`fixed-${f.id}`} sx={{ opacity: 0.55, bgcolor: 'action.hover' }}>
+                        <TableCell>
+                          <Typography variant="caption" color="textSecondary">Ngày {f.dayOfMonth}/{selMonth}</Typography>
+                        </TableCell>
+                        <TableCell><Chip label={f.category} size="small" variant="outlined" /></TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                            {f.title} <Chip label="Cố định" size="small" sx={{ ml: 0.5, fontSize: 10 }} />
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: f.type === 'income' ? 'success.light' : 'error.light', fontStyle: 'italic' }}>
+                            {f.type === 'income' ? '+' : '-'}{formatVND(f.amount)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    ))}
+                  </>
+                )}
               </TableBody>
             </Table>
           </CardContent>
