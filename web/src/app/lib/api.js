@@ -34,9 +34,11 @@ async function apiFetch(path, options = {}) {
     throw new Error(text || `API error ${res.status}`);
   }
 
-  // 204 No Content
+  // 204 No Content or empty body
   if (res.status === 204) return null;
-  return res.json();
+  const text = await res.text();
+  if (!text) return null;
+  return JSON.parse(text);
 }
 
 export const api = {
