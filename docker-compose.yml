@@ -1,40 +1,12 @@
-version: '3.9'
-
 services:
-  # ── SQL Server ────────────────────────────────────────────────────────────────
-  db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: qltiando_db
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD}"
-      MSSQL_PID: "Developer"
-      # Giới hạn RAM SQL Server dùng (MB) — tránh chiếm hết RAM server
-      MSSQL_MEMORY_LIMIT_MB: "2048"
-    volumes:
-      - db_data:/var/opt/mssql
-    deploy:
-      resources:
-        limits:
-          memory: 2.5g
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${DB_SA_PASSWORD}", "-C", "-Q", "SELECT 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   # ── .NET API ──────────────────────────────────────────────────────────────────
   api:
     build:
       context: ./api/QuanLyTienDo.API
       dockerfile: Dockerfile
     container_name: qltiando_api
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=QuanLyTienDo;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;"
+      ConnectionStrings__DefaultConnection: "Server=shared-sqlserver,1433;Database=QuanLyTienDo;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;"
       Jwt__Key: "${JWT_KEY}"
       Jwt__Issuer: "QuanLyTienDo.API"
       Jwt__Audience: "QuanLyTienDo.Web"
@@ -50,6 +22,8 @@ services:
       resources:
         limits:
           memory: 512m
+    networks:
+      - shared-infra-net
     restart: unless-stopped
 
   # ── Next.js Web ───────────────────────────────────────────────────────────────
@@ -72,7 +46,10 @@ services:
       resources:
         limits:
           memory: 700m
+    networks:
+      - shared-infra-net
     restart: unless-stopped
 
-volumes:
-  db_data:
+networks:
+  shared-infra-net:
+    external: true
