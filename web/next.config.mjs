@@ -10,7 +10,6 @@ const nextConfig = {
       '@mui/icons-material',
       '@mui/material',
       '@mui/lab',
-      'date-fns',
       'lodash',
     ],
   },
