@@ -47,15 +47,51 @@ const BAD_CHARS = [
 // Tập hợp các codepoint sai để tra nhanh
 const BAD_CHAR_MAP = new Map(BAD_CHARS.map(b => [b.char, b]));
 
+// Ký tự Latin Extended Additional (U+1E00-U+1EFF) hợp lệ trong tiếng Việt
+const VALID_VIET_1EXX = new Set(
+  'ẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹ'
+);
+
+// Dải ký tự Latin-1 Supplement bị coi là lỗi encoding (TCVN3/VNI convert sai)
+const BAD_CP_RANGES = [
+  [0x0080, 0x009F], // C1 control characters
+  [0x00A1, 0x00B4], // ¡ ¢ £ ¤ ¥ ¦ § ¨ © ª « ¬ ­ ® ¯ ° ± ² ³ ´
+  [0x00B6, 0x00BF], // · ¸ ¹ º » ¼ ½ ¾ ¿
+];
+
+function isEncodingBadChar(ch) {
+  const cp = ch.codePointAt(0);
+  if (BAD_CP_RANGES.some(([a, b]) => cp >= a && cp <= b)) return true;
+  if (cp >= 0x1E00 && cp <= 0x1EFF && !VALID_VIET_1EXX.has(ch)) return true;
+  return false;
+}
+
 function findBadChars(str) {
   const found = [];
-  // 1. Kiểm tra từng ký tự trong danh sách sai
+  // 1. Kiểm tra từng ký tự trong danh sách sai (Cyrillic, zero-width, quotes...)
   for (const [ch, info] of BAD_CHAR_MAP) {
     if (str.includes(ch)) {
       found.push({ ...info, count: [...str].filter(c => c === ch).length });
     }
   }
-  // 2. Kiểm tra NFD (ký tự có dấu dạng tổ hợp rời thay vì NFC)
+  // 2. Ký tự sai encoding (Latin-1 bad ranges + Latin Extended Additional không phải tiếng Việt)
+  const encBad = [];
+  for (const ch of str) {
+    if (isEncodingBadChar(ch)) {
+      const cp = ch.codePointAt(0);
+      encBad.push(`${ch}(U+${cp.toString(16).toUpperCase().padStart(4,'0')})`);
+    }
+  }
+  if (encBad.length > 0) {
+    found.push({
+      char: encBad.slice(0, 5).join(' '),
+      code: null,
+      name: 'Ký tự lỗi encoding (TCVN3/VNI convert sai)',
+      suggest: 'Kiểm tra lại nguồn dữ liệu',
+      count: encBad.length,
+    });
+  }
+  // 3. Kiểm tra NFD (ký tự có dấu dạng tổ hợp rời thay vì NFC)
   const nfc = str.normalize('NFC');
   if (str !== nfc) {
     found.push({
