@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -9,8 +9,13 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import ListSubheader from '@mui/material/ListSubheader';
+import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import SearchIcon from '@mui/icons-material/Search';
 import Divider from '@mui/material/Divider';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -19,8 +24,6 @@ import { fetchBibleVerseText } from '@/app/lib/bibleVerseText';
 import Tooltip from '@mui/material/Tooltip';
 
 const SEP = '; ';
-const ITEM_H = 44;
-const VISIBLE = 5;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -28,47 +31,24 @@ function splitRefs(value) {
   return (value || '').split(SEP).map(s => s.trim()).filter(Boolean);
 }
 
-/**
- * Parse "Sáng Thế Ký 1:1-3:10" or "Sáng Thế Ký 3:16"
- * Returns { book, chFrom, vFrom, chTo, vTo }
- */
 function parseRef(ref) {
-  // Cross-chapter: "Book chFrom:vFrom-chTo:vTo"
   const cross = ref.match(/^(.+?)\s+(\d+):(\d+)-(\d+):(\d+)$/);
-  if (cross) {
-    return {
-      book: cross[1],
-      chFrom: parseInt(cross[2]), vFrom: parseInt(cross[3]),
-      chTo: parseInt(cross[4]),   vTo: parseInt(cross[5]),
-    };
-  }
-  // Same chapter range: "Book ch:vFrom-vTo"
+  if (cross) return { book: cross[1], chFrom: +cross[2], vFrom: +cross[3], chTo: +cross[4], vTo: +cross[5] };
   const same = ref.match(/^(.+?)\s+(\d+):(\d+)-(\d+)$/);
-  if (same) {
-    return {
-      book: same[1],
-      chFrom: parseInt(same[2]), vFrom: parseInt(same[3]),
-      chTo: parseInt(same[2]),   vTo: parseInt(same[4]),
-    };
-  }
-  // Single verse: "Book ch:v"
+  if (same) return { book: same[1], chFrom: +same[2], vFrom: +same[3], chTo: +same[2], vTo: +same[4] };
   const single = ref.match(/^(.+?)\s+(\d+):(\d+)$/);
-  if (single) {
-    return {
-      book: single[1],
-      chFrom: parseInt(single[2]), vFrom: parseInt(single[3]),
-      chTo: parseInt(single[2]),   vTo: parseInt(single[3]),
-    };
-  }
+  if (single) return { book: single[1], chFrom: +single[2], vFrom: +single[3], chTo: +single[2], vTo: +single[3] };
+  // Format từ lịch đọc: "Thi-thiên 36-38" (chapter range, không có verse)
+  const chapRange = ref.match(/^(.+?)\s+(\d+)-(\d+)$/);
+  if (chapRange) return { book: chapRange[1], chFrom: +chapRange[2], vFrom: 1, chTo: +chapRange[3], vTo: 1 };
+  // Single chapter: "Thi-thiên 36"
+  const chapOnly = ref.match(/^(.+?)\s+(\d+)$/);
+  if (chapOnly) return { book: chapOnly[1], chFrom: +chapOnly[2], vFrom: 1, chTo: +chapOnly[2], vTo: 1 };
   return null;
 }
 
 function buildRef(book, chFrom, vFrom, chTo, vTo) {
-  if (chFrom === chTo) {
-    return vFrom === vTo
-      ? `${book} ${chFrom}:${vFrom}`
-      : `${book} ${chFrom}:${vFrom}-${vTo}`;
-  }
+  if (chFrom === chTo) return vFrom === vTo ? `${book} ${chFrom}:${vFrom}` : `${book} ${chFrom}:${vFrom}-${vTo}`;
   return `${book} ${chFrom}:${vFrom}-${chTo}:${vTo}`;
 }
 
@@ -86,7 +66,7 @@ function VerseChipWithTooltip({ label, color = 'success', variant = 'outlined', 
     setStatus('done');
   }
 
-  const title = status === 'loading' ? 'Đang tải...' : status === 'done' ? (text ?? 'Không tìm thấy nội dung') : '';
+  const title = status === 'loading' ? 'Đang tải...' : status === 'done' ? (text ?? 'Không tìm thấy') : '';
 
   return (
     <Tooltip title={title} arrow placement="top"
@@ -98,77 +78,68 @@ function VerseChipWithTooltip({ label, color = 'success', variant = 'outlined', 
   );
 }
 
-// ── Drum roll ─────────────────────────────────────────────────────────────────
+// ── Book dropdown with search (từ BibleRangePicker) ───────────────────────────
 
-function SlotPicker({ options, value, onChange }) {
-  const containerRef = useRef(null);
-  const settlingRef = useRef(false);
-  const timerRef = useRef(null);
-  const height = ITEM_H * VISIBLE;
-  const pad = ITEM_H * Math.floor(VISIBLE / 2);
-
-  const scrollToIndex = useCallback((idx, smooth = false) => {
-    const el = containerRef.current;
-    if (!el) return;
-    settlingRef.current = true;
-    el.scrollTo({ top: idx * ITEM_H, behavior: smooth ? 'smooth' : 'instant' });
-    setTimeout(() => { settlingRef.current = false; }, 300);
-  }, []);
-
-  useEffect(() => {
-    const idx = options.findIndex(o => o.value === value);
-    if (idx >= 0) requestAnimationFrame(() => scrollToIndex(idx));
-  }, [value, options, scrollToIndex]);
-
-  function handleScroll() {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      const el = containerRef.current;
-      if (!el || settlingRef.current) return;
-      const idx = Math.round(el.scrollTop / ITEM_H);
-      const clamped = Math.max(0, Math.min(idx, options.length - 1));
-      settlingRef.current = true;
-      el.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' });
-      setTimeout(() => { settlingRef.current = false; }, 300);
-      if (options[clamped] && options[clamped].value !== value) {
-        onChange(options[clamped].value);
-      }
-    }, 80);
-  }
+function BookSelect({ value, onChange, books, placeholder, disabled }) {
+  const [search, setSearch] = useState('');
+  const filtered = useMemo(
+    () => books.filter(n => n.toLowerCase().includes(search.toLowerCase())),
+    [books, search],
+  );
 
   return (
-    <Box sx={{ position: 'relative', height, flex: 1, minWidth: 0 }}>
-      {/* Selection ring */}
-      <Box sx={{ position: 'absolute', top: '50%', left: 2, right: 2, height: ITEM_H, transform: 'translateY(-50%)', bgcolor: 'primary.main', opacity: 0.08, borderRadius: 1.5, pointerEvents: 'none', zIndex: 1 }} />
-      <Box sx={{ position: 'absolute', top: '50%', left: 2, right: 2, height: ITEM_H, transform: 'translateY(-50%)', border: '1.5px solid', borderColor: 'primary.main', opacity: 0.3, borderRadius: 1.5, pointerEvents: 'none', zIndex: 1 }} />
-      {/* Fades */}
-      <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: '38%', background: 'linear-gradient(to bottom,rgba(255,255,255,.96),transparent)', pointerEvents: 'none', zIndex: 2 }} />
-      <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '38%', background: 'linear-gradient(to top,rgba(255,255,255,.96),transparent)', pointerEvents: 'none', zIndex: 2 }} />
-      {/* List */}
-      <Box ref={containerRef} onScroll={handleScroll} sx={{ width: '100%', height: '100%', overflowY: 'scroll', scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' }, scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch', pt: `${pad}px`, pb: `${pad}px` }}>
-        {options.map(opt => (
-          <Box key={opt.value}
-            onClick={() => { const idx = options.findIndex(o => o.value === opt.value); scrollToIndex(idx, true); onChange(opt.value); }}
-            sx={{ height: ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center', scrollSnapAlign: 'center', cursor: 'pointer', px: 0.5, userSelect: 'none' }}
-          >
-            <Typography noWrap sx={{ fontSize: opt.value === value ? 13.5 : 12.5, fontWeight: opt.value === value ? 700 : 400, color: opt.value === value ? 'primary.main' : 'text.secondary', transition: 'all 0.12s', textAlign: 'center', lineHeight: 1.2 }}>
-              {opt.label}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
+    <Select
+      size="small"
+      displayEmpty
+      value={value}
+      disabled={disabled}
+      onChange={e => onChange(e.target.value)}
+      onClose={() => setSearch('')}
+      MenuProps={{ PaperProps: { sx: { maxHeight: 360 } }, autoFocus: false }}
+      sx={{ minWidth: 160, fontSize: 13 }}
+    >
+      <ListSubheader sx={{ pt: 1, pb: 0.5, lineHeight: 1 }}>
+        <TextField
+          size="small"
+          placeholder="Tìm sách..."
+          fullWidth
+          autoFocus
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => e.stopPropagation()}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+          sx={{ fontSize: 13 }}
+        />
+      </ListSubheader>
+      {placeholder !== undefined && (
+        <MenuItem value="" sx={{ fontSize: 13, color: 'text.disabled' }}><em>{placeholder}</em></MenuItem>
+      )}
+      {filtered.length === 0
+        ? <MenuItem disabled sx={{ fontSize: 13, color: 'text.disabled' }}>Không tìm thấy</MenuItem>
+        : filtered.map(name => <MenuItem key={name} value={name} sx={{ fontSize: 13 }}>{name}</MenuItem>)
+      }
+    </Select>
   );
 }
 
-// ── Label above each drum roll ────────────────────────────────────────────────
-function PickerCol({ label, options, value, onChange }) {
+// ── Chapter / Verse dropdown ──────────────────────────────────────────────────
+
+function NumSelect({ value, onChange, items, label, disabled }) {
   return (
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mb: 0.5, fontWeight: 600 }}>
-        {label}
-      </Typography>
-      <SlotPicker options={options} value={value} onChange={onChange} />
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>{label}</Typography>
+      <Select
+        size="small"
+        displayEmpty
+        value={value ?? ''}
+        disabled={disabled}
+        onChange={e => onChange(Number(e.target.value))}
+        MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+        sx={{ width: 80, fontSize: 13 }}
+      >
+        <MenuItem value="" sx={{ fontSize: 13, color: 'text.disabled' }}><em>--</em></MenuItem>
+        {items.map(n => <MenuItem key={n} value={n} sx={{ fontSize: 13 }}>{n}</MenuItem>)}
+      </Select>
     </Box>
   );
 }
@@ -190,60 +161,51 @@ export default function BibleVerseSelector({
   const [open, setOpen] = useState(false);
   const [modalRefs, setModalRefs] = useState([]);
 
-  // Picker state
-  const [book, setBook]       = useState('');
-  const [chFrom, setChFrom]   = useState(1);
-  const [vFrom, setVFrom]     = useState(1);
-  const [chTo, setChTo]       = useState(1);
-  const [vTo, setVTo]         = useState(1);
+  const [book, setBook]     = useState('');
+  const [chFrom, setChFrom] = useState(1);
+  const [vFrom, setVFrom]   = useState(1);
+  const [chTo, setChTo]     = useState(1);
+  const [vTo, setVTo]       = useState(1);
 
   const currentRefs = useMemo(() => splitRefs(value), [value]);
 
-  // Books available
   const displayBooks = useMemo(() => {
-    if (suggestedBooks && suggestedBooks.length > 0) {
-      return suggestedBooks
-        .map(sb => BIBLE_BOOKS.find(b => b.name === sb.name))
-        .filter(Boolean);
-    }
+    if (suggestedBooks?.length > 0)
+      return suggestedBooks.map(sb => BIBLE_BOOKS.find(b => b.name === sb.name)).filter(Boolean);
     return BIBLE_BOOKS;
   }, [suggestedBooks]);
 
-  const bookData    = useMemo(() => BIBLE_BOOKS.find(b => b.name === book), [book]);
-  const totalCh     = bookData?.chapters.length ?? 1;
+  const bookNames = useMemo(() => displayBooks.map(b => b.name), [displayBooks]);
+  const bookData  = useMemo(() => BIBLE_BOOKS.find(b => b.name === book), [book]);
+  const totalCh   = bookData?.chapters.length ?? 1;
+
+  const sugEntry = useMemo(() => suggestedBooks?.find(sb => sb.name === book), [suggestedBooks, book]);
+  const chapMin  = sugEntry?.chapFrom ?? 1;
+  const chapMax  = sugEntry?.chapTo   ?? totalCh;
+
   const verseCountFrom = bookData ? (bookData.chapters[chFrom - 1] ?? 1) : 1;
   const verseCountTo   = bookData ? (bookData.chapters[chTo   - 1] ?? 1) : 1;
 
-  // Chapter/verse limits from suggestedBooks
-  const sugEntry  = useMemo(() => suggestedBooks?.find(sb => sb.name === book), [suggestedBooks, book]);
-  const chapMin   = sugEntry?.chapFrom ?? 1;
-  const chapMax   = sugEntry?.chapTo   ?? totalCh;
-
-  // Options
-  const bookOptions  = useMemo(() => displayBooks.map(b => ({ value: b.name, label: b.name })), [displayBooks]);
-  const chFromOpts   = useMemo(() => Array.from({ length: chapMax - chapMin + 1 }, (_, i) => chapMin + i).map(ch => ({ value: ch, label: `Đoạn ${ch}` })), [chapMin, chapMax]);
-  const vFromOpts    = useMemo(() => Array.from({ length: verseCountFrom }, (_, i) => i + 1).map(v => ({ value: v, label: `Câu ${v}` })), [verseCountFrom]);
-  const chToOpts     = useMemo(() => Array.from({ length: chapMax - chFrom + 1 }, (_, i) => chFrom + i).map(ch => ({ value: ch, label: `Đoạn ${ch}` })), [chFrom, chapMax]);
-  const vToOpts      = useMemo(() => {
+  const chFromItems = useMemo(() => Array.from({ length: chapMax - chapMin + 1 }, (_, i) => chapMin + i), [chapMin, chapMax]);
+  const vFromItems  = useMemo(() => Array.from({ length: verseCountFrom }, (_, i) => i + 1), [verseCountFrom]);
+  const chToItems   = useMemo(() => Array.from({ length: chapMax - chFrom + 1 }, (_, i) => chFrom + i), [chFrom, chapMax]);
+  const vToItems    = useMemo(() => {
     const start = chTo === chFrom ? vFrom : 1;
-    return Array.from({ length: verseCountTo - start + 1 }, (_, i) => start + i).map(v => ({ value: v, label: `Câu ${v}` }));
+    return Array.from({ length: verseCountTo - start + 1 }, (_, i) => start + i);
   }, [chTo, chFrom, vFrom, verseCountTo]);
 
   function handleOpen() {
     setModalRefs(splitRefs(value));
-    // Restore from first existing ref if possible
     const first = splitRefs(value)[0];
     const parsed = first ? parseRef(first) : null;
     if (parsed && displayBooks.find(b => b.name === parsed.book)) {
-      setBook(parsed.book);
-      setChFrom(parsed.chFrom); setVFrom(parsed.vFrom);
-      setChTo(parsed.chTo);     setVTo(parsed.vTo);
+      setBook(parsed.book); setChFrom(parsed.chFrom); setVFrom(parsed.vFrom);
+      setChTo(parsed.chTo); setVTo(parsed.vTo);
     } else {
       const defaultBook = displayBooks[0]?.name ?? '';
       const defEntry = suggestedBooks?.find(sb => sb.name === defaultBook);
-      setBook(defaultBook);
-      setChFrom(defEntry?.chapFrom ?? 1); setVFrom(1);
-      setChTo(defEntry?.chapFrom ?? 1);   setVTo(1);
+      const min = defEntry?.chapFrom ?? 1;
+      setBook(defaultBook); setChFrom(min); setVFrom(1); setChTo(min); setVTo(1);
     }
     setOpen(true);
   }
@@ -252,13 +214,11 @@ export default function BibleVerseSelector({
     setBook(b);
     const entry = suggestedBooks?.find(sb => sb.name === b);
     const min = entry?.chapFrom ?? 1;
-    setChFrom(min); setVFrom(1);
-    setChTo(min);   setVTo(1);
+    setChFrom(min); setVFrom(1); setChTo(min); setVTo(1);
   }
 
   function handleChFromChange(ch) {
-    setChFrom(ch);
-    setVFrom(1);
+    setChFrom(ch); setVFrom(1);
     if (chTo < ch) { setChTo(ch); setVTo(1); }
   }
 
@@ -267,10 +227,7 @@ export default function BibleVerseSelector({
     if (chTo === chFrom && vTo < v) setVTo(v);
   }
 
-  function handleChToChange(ch) {
-    setChTo(ch);
-    setVTo(1);
-  }
+  function handleChToChange(ch) { setChTo(ch); setVTo(1); }
 
   function handleAddRef() {
     if (!book) return;
@@ -278,7 +235,7 @@ export default function BibleVerseSelector({
     if (!modalRefs.includes(ref)) setModalRefs(prev => [...prev, ref]);
   }
 
-  function handleRemoveModal(idx) { setModalRefs(prev => prev.filter((_, i) => i !== idx)); }
+  function handleRemoveModal(idx)    { setModalRefs(prev => prev.filter((_, i) => i !== idx)); }
   function handleRemoveExternal(idx) { onChange(currentRefs.filter((_, i) => i !== idx).join(SEP)); }
 
   const previewRef = book ? buildRef(book, chFrom, vFrom, chTo, vTo) : '';
@@ -310,48 +267,32 @@ export default function BibleVerseSelector({
 
         <DialogContent sx={{ pt: '12px !important' }}>
 
-          {/* Book picker */}
-          <Box sx={{ bgcolor: '#f5f5f5', borderRadius: 2, p: 1, mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mb: 0.5, fontWeight: 600 }}>Sách</Typography>
-            <SlotPicker options={bookOptions} value={book} onChange={handleBookChange} />
+          {/* Book */}
+          <Box sx={{ mb: 2.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>Sách</Typography>
+            <BookSelect value={book} onChange={handleBookChange} books={bookNames} placeholder="-- Chọn sách --" />
           </Box>
 
-          {/* From / To pickers */}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+          {/* From / To */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flexWrap: 'wrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ pb: 1 }}>Từ</Typography>
+            <NumSelect label="Đoạn" value={chFrom} onChange={handleChFromChange} items={chFromItems} disabled={!book} />
+            <NumSelect label="Câu"  value={vFrom}  onChange={handleVFromChange}  items={vFromItems}  disabled={!book} />
 
-            {/* FROM */}
-            <Box sx={{ flex: 1, bgcolor: '#f5f5f5', borderRadius: 2, p: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mb: 0.5, fontWeight: 600 }}>Từ</Typography>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <PickerCol label="Đoạn" options={chFromOpts} value={chFrom} onChange={handleChFromChange} />
-                <PickerCol label="Câu"  options={vFromOpts}  value={vFrom}  onChange={handleVFromChange} />
-              </Box>
-            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ pb: 1, px: 0.5 }}>—</Typography>
 
-            {/* Arrow */}
-            <Box sx={{ display: 'flex', alignItems: 'center', height: ITEM_H * VISIBLE + 28, pt: '28px' }}>
-              <Typography sx={{ color: 'text.secondary', fontWeight: 700, fontSize: 20, px: 0.5 }}>→</Typography>
-            </Box>
-
-            {/* TO */}
-            <Box sx={{ flex: 1, bgcolor: '#f5f5f5', borderRadius: 2, p: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mb: 0.5, fontWeight: 600 }}>Đến</Typography>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <PickerCol label="Đoạn" options={chToOpts} value={chTo} onChange={handleChToChange} />
-                <PickerCol label="Câu"  options={vToOpts}  value={vTo}  onChange={setVTo} />
-              </Box>
-            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ pb: 1 }}>Đến</Typography>
+            <NumSelect label="Đoạn" value={chTo} onChange={handleChToChange} items={chToItems} disabled={!book} />
+            <NumSelect label="Câu"  value={vTo}  onChange={setVTo}           items={vToItems}  disabled={!book} />
           </Box>
 
           {/* Preview + Add */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 2.5 }}>
             {previewRef
               ? <Chip label={previewRef} color={canAdd ? 'primary' : 'default'} size="small" />
               : <Typography variant="caption" color="text.disabled">Chưa chọn</Typography>
             }
-            <Button size="small" variant="contained" disabled={!canAdd} onClick={handleAddRef}>
-              + Thêm
-            </Button>
+            <Button size="small" variant="contained" disabled={!canAdd} onClick={handleAddRef}>+ Thêm</Button>
           </Box>
 
           {/* Selected list */}

@@ -528,8 +528,11 @@ function DevotionFormTab({ getReading }) {
     try {
       const data = await apiClient.get('/api/devotion', { date: selectedDateStr });
       if (data) {
-        const loadedPassages = Array.isArray(data.biblePassages) ? data.biblePassages : [];
-        const loadedRefs = data.bibleRefs || data.passages || passagesToRefs(loadedPassages);
+        // data.passages là JSON string từ API, parse ra array
+        let loadedPassages = [];
+        try { loadedPassages = JSON.parse(data.passages || '[]'); } catch {}
+        if (!Array.isArray(loadedPassages)) loadedPassages = [];
+        const loadedRefs = data.bibleRefs || passagesToRefs(loadedPassages);
         setForm({
           biblePassages: loadedPassages,
           bibleRefs: loadedRefs,
@@ -541,7 +544,9 @@ function DevotionFormTab({ getReading }) {
           mood: data.mood || 'peaceful',
         });
       } else {
-        setForm(emptyForm);
+        // Tự động điền đoạn KT từ lịch đọc tuần khi chưa có devotion
+        const reading = getReading(selectedDateStr);
+        setForm({ ...emptyForm, bibleRefs: reading?.passage || '' });
       }
     } catch { setForm(emptyForm); }
     finally { setLoading(false); }
@@ -558,19 +563,11 @@ function DevotionFormTab({ getReading }) {
 
   function addFromPlan() {
     if (!todayReading) return;
-    const parts = todayReading.passage.split(' ');
-    const chapterPart = parts[parts.length - 1];
-    const bookName = parts.slice(0, -1).join(' ');
-    const [from, to] = chapterPart.split('-');
-    // Build a ref string like "Giăng 3:1" (chapter-level, start at verse 1)
-    const newRef = to
-      ? `${bookName} ${from}:1`
-      : `${bookName} ${from}:1`;
+    const newRef = todayReading.passage;
     setForm(f => {
       const existing = f.bibleRefs ? f.bibleRefs.split('; ').filter(Boolean) : [];
       if (existing.includes(newRef)) return f;
-      const updated = [...existing, newRef].join('; ');
-      return { ...f, bibleRefs: updated };
+      return { ...f, bibleRefs: [...existing, newRef].join('; ') };
     });
   }
 
@@ -588,17 +585,16 @@ function DevotionFormTab({ getReading }) {
   async function handleSave() {
     setSaving(true);
     try {
-      // Convert bibleRefs back to biblePassages for backward compat with API/DB
       const derivedPassages = refsToPassages(form.bibleRefs || '');
       await apiClient.post('/api/devotion', {
         date: selectedDateStr,
+        passages: JSON.stringify(derivedPassages),
         bibleTeaches: form.whatBibleTeaches,
         lessonLearned: form.whatILearned,
         application: form.howToApply,
         prayerPoints: form.prayerPoints,
         memorizeVerse: form.memoryVerse,
         mood: form.mood,
-        biblePassages: derivedPassages,
       });
       setSnack('Đã lưu tĩnh nguyện!');
     } catch (err) { setSnack('Lỗi: ' + (err.message || 'Không thể lưu')); }
