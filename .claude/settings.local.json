@@ -9,7 +9,10 @@
       "Bash(dotnet add:*)",
       "Bash(dotnet ef:*)",
       "Bash(dotnet tool:*)",
-      "Bash(dotnet-ef migrations:*)"
+      "Bash(dotnet-ef migrations:*)",
+      "Bash(node -e \"try { const d = JSON.parse\\(require\\('fs'\\).readFileSync\\('bible.json','utf8'\\)\\); console.log\\('OK, books:', d.length\\); } catch\\(e\\) { console.error\\('ERROR:', e.message.slice\\(0,200\\)\\); }\")",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"try { const d = JSON.parse\\(require\\('fs'\\).readFileSync\\('bible.json','utf8'\\)\\); console.log\\('OK, books:', d.length\\); d.forEach\\(b => console.log\\(b.id, 'chapters:', b.chapters.length\\)\\); } catch\\(e\\) { console.error\\('ERROR:', e.message.slice\\(0,200\\)\\); }\")"
     ]
   }
 }
