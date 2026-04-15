@@ -31,7 +31,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Slider from '@mui/material/Slider';
-import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings, IconColumns, IconAbc } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconBook, IconArrowsMaximize, IconArrowsMinimize, IconList, IconAlignLeft, IconCircleCheck, IconCircle, IconSettings, IconColumns, IconAbc, IconNotebook, IconTrash, IconEdit, IconFileWord } from '@tabler/icons-react';
 import { getActiveVocab, tokenizeVerse } from '@/app/lib/bibleWordWise';
 
 import PageContainer from '@/app/components/container/PageContainer';
