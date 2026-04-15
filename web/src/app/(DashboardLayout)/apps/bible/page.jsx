@@ -299,6 +299,62 @@ async function loadBibleNIV() {
   return bibleNIVCache;
 }
 
+// ── Study helper functions ────────────────────────────────────────────────────
+function safeParseJson(str, fallback) {
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+const emptyObs = () => ({ characters: '', actions: '', whereWhen: '', repeatedWords: '', connectingWords: '', commands: '', contrasts: '' });
+const emptyInt = () => ({ mainIdea: '', whyImportant: '', aboutGod: '', aboutHuman: '', context: '' });
+const emptyApp = () => ({ specificAction: '', when: '', obstacles: '', changeToday: '' });
+function validateObs(obs) {
+  return Object.values(obs).filter(f => f && f.trim().length >= 10).length >= 3;
+}
+function validateInt(int) {
+  const hasRequired = [int.mainIdea, int.whyImportant].every(f => f && f.trim().length >= 15);
+  return hasRequired && Object.values(int).filter(f => f && f.trim().length >= 15).length >= 3;
+}
+function validateApp(app) {
+  return ['specificAction', 'when', 'changeToday'].every(k => app[k] && app[k].trim().length >= 10);
+}
+async function exportStudyWord(session) {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
+  const { saveAs } = await import('file-saver');
+  const obs = safeParseJson(session.observationJson, emptyObs());
+  const int = safeParseJson(session.interpretationJson, emptyInt());
+  const app = safeParseJson(session.applicationJson, emptyApp());
+  function makeSection(title, items) {
+    return [
+      new Paragraph({ text: title, heading: HeadingLevel.HEADING_2 }),
+      ...items.filter(([, v]) => v && v.trim()).flatMap(([label, value]) => [
+        new Paragraph({ children: [new TextRun({ text: `${label}:`, bold: true })] }),
+        new Paragraph({ text: value }),
+        new Paragraph({ text: '' }),
+      ]),
+    ];
+  }
+  const doc = new Document({ sections: [{ children: [
+    new Paragraph({ text: `Học Kinh Thánh — ${session.passage}`, heading: HeadingLevel.HEADING_1 }),
+    new Paragraph({ text: '' }),
+    ...makeSection('QUAN SÁT', [
+      ['Ai xuất hiện', obs.characters], ['Họ làm gì', obs.actions],
+      ['Ở đâu / Khi nào', obs.whereWhen], ['Từ lặp lại', obs.repeatedWords],
+      ['Từ nối', obs.connectingWords], ['Mệnh lệnh', obs.commands],
+      ['So sánh / tương phản', obs.contrasts],
+    ]),
+    ...makeSection('GIẢI NGHĨA', [
+      ['Ý chính', int.mainIdea], ['Tại sao quan trọng', int.whyImportant],
+      ['Về Đức Chúa Trời', int.aboutGod], ['Về con người', int.aboutHuman],
+      ['Ngữ cảnh', int.context],
+    ]),
+    ...makeSection('ÁP DỤNG', [
+      ['Tôi cần làm gì', app.specificAction], ['Khi nào', app.when],
+      ['Trở ngại', app.obstacles], ['Thay đổi hôm nay', app.changeToday],
+    ]),
+  ]}]});
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `KinhThanh_${(session.passage || 'study').replace(/\s+/g, '_')}.docx`);
+}
+
 function toLocalDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -593,6 +649,394 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
         </Box>
       </Menu>
     </Box>
+  );
+}
+
+// ── Study components ─────────────────────────────────────────────────────────
+function StudyNoteCard({ session, onContinue, onDelete }) {
+  const steps = safeParseJson(session.completedStepsJson, []);
+  return (
+    <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{session.passage}</Typography>
+        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+          {[['obs','QS'],['int','GN'],['app','ÁD']].map(([k,l]) => (
+            <Chip key={k} label={l} size="small"
+              color={steps.includes(k) ? 'success' : 'default'} variant={steps.includes(k) ? 'filled' : 'outlined'}
+              sx={{ fontSize: 10, height: 18 }} />
+          ))}
+          {session.isCompleted && <Chip label="✓ Hoàn thành" size="small" color="success" sx={{ fontSize: 10, height: 18 }} />}
+        </Box>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        {!session.isCompleted && (
+          <Tooltip title="Tiếp tục">
+            <IconButton size="small" onClick={() => onContinue(session)}><IconEdit size={16} /></IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title="Xóa">
+          <IconButton size="small" color="error" onClick={() => onDelete(session.id)}><IconTrash size={16} /></IconButton>
+        </Tooltip>
+      </Box>
+    </Box>
+  );
+}
+
+function ObsStep({ obs, onChange, onNext }) {
+  const [showHints, setShowHints] = useState(false);
+  const valid = validateObs(obs);
+  const filled = Object.values(obs).filter(f => f && f.trim().length >= 10).length;
+  const fields = [
+    { key: 'characters', label: '1. Ai xuất hiện trong đoạn này?', hint: 'Bao gồm nhân vật chính lẫn phụ' },
+    { key: 'actions', label: '2. Họ làm gì? (hành động cụ thể)', hint: 'Liệt kê từng hành động, đừng tóm tắt' },
+    { key: 'whereWhen', label: '3. Ở đâu? Khi nào?', hint: 'Có thể để trống nếu không có thông tin' },
+    { key: 'repeatedWords', label: '4. Từ nào lặp lại trong đoạn?', hint: 'Đọc lại chậm — từ lặp = tác giả nhấn mạnh' },
+    { key: 'connectingWords', label: '5. Từ nối quan trọng? (vì, nhưng, nên...)', hint: 'Từ nối cho thấy quan hệ nhân quả / tương phản' },
+    { key: 'commands', label: '6. Có mệnh lệnh nào không?', hint: 'Ví dụ: đừng than phiền, hãy làm...' },
+    { key: 'contrasts', label: '7. Có so sánh / tương phản nào?', hint: 'Ví dụ: sáng như đèn, không phải... mà là...' },
+  ];
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <LinearProgress variant="determinate" value={(filled / 7) * 100} sx={{ flex: 1, height: 8, borderRadius: 4 }} />
+        <Typography variant="caption" color="textSecondary">{filled}/7 câu</Typography>
+      </Box>
+      {!valid && showHints && (
+        <Box sx={{ mb: 2, px: 1.5, py: 1, bgcolor: 'warning.50', borderRadius: 2, border: '1px solid', borderColor: 'warning.200' }}>
+          <Typography variant="caption" color="warning.dark">Cần trả lời ít nhất 3 câu (≥10 ký tự) để tiếp tục</Typography>
+        </Box>
+      )}
+      {fields.map(f => (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>{f.label}</Typography>
+          <TextField fullWidth multiline rows={2} size="small"
+            value={obs[f.key]} onChange={e => onChange({ ...obs, [f.key]: e.target.value })}
+            placeholder={f.hint}
+            helperText={(!obs[f.key] || obs[f.key].trim().length < 10) ? f.hint : ''}
+            FormHelperTextProps={{ sx: { color: 'text.disabled', fontSize: 11 } }}
+          />
+        </Box>
+      ))}
+      <Button fullWidth variant="contained" size="large" sx={{ mt: 1, borderRadius: 3 }}
+        onClick={() => valid ? onNext() : setShowHints(true)}>
+        Hoàn thành Quan Sát →
+      </Button>
+    </Box>
+  );
+}
+
+function IntStep({ int, onChange, onNext, unlocked }) {
+  const [showHints, setShowHints] = useState(false);
+  const valid = validateInt(int);
+  const filled = Object.values(int).filter(f => f && f.trim().length >= 15).length;
+  const fields = [
+    { key: 'mainIdea', label: '1. Tác giả muốn nói gì? (ý chính 1-2 câu)', hint: 'Tóm trong 1-2 câu, không copy lại KT', required: true },
+    { key: 'whyImportant', label: '2. Tại sao điều này quan trọng?', hint: 'Bối cảnh lịch sử, ai là người nhận thư...', required: true },
+    { key: 'aboutGod', label: '3. Đoạn này nói gì về Đức Chúa Trời?', hint: 'Tính cách / việc Ngài làm / điều Ngài muốn' },
+    { key: 'aboutHuman', label: '4. Đoạn này nói gì về con người?', hint: 'Trạng thái / nhu cầu / trách nhiệm' },
+    { key: 'context', label: '5. Ngữ cảnh rộng hơn là gì?', hint: 'Đoạn này nằm trong sách nào, chủ đề gì' },
+  ];
+  if (!unlocked) return (
+    <Box sx={{ textAlign: 'center', py: 4 }}>
+      <Typography variant="body2" color="textSecondary">🔒 Hoàn thành Quan Sát trước để mở khóa Giải Nghĩa</Typography>
+    </Box>
+  );
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <LinearProgress variant="determinate" value={(filled / 5) * 100} color="success" sx={{ flex: 1, height: 8, borderRadius: 4 }} />
+        <Typography variant="caption" color="textSecondary">{filled}/5 câu</Typography>
+      </Box>
+      {!valid && showHints && (
+        <Box sx={{ mb: 2, px: 1.5, py: 1, bgcolor: 'warning.50', borderRadius: 2, border: '1px solid', borderColor: 'warning.200' }}>
+          <Typography variant="caption" color="warning.dark">Điền câu 1 và 2 bắt buộc (≥15 ký tự) và ít nhất 3 câu tổng cộng</Typography>
+        </Box>
+      )}
+      {fields.map(f => (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+            {f.label}{f.required && <span style={{ color: '#d32f2f' }}> *</span>}
+          </Typography>
+          <TextField fullWidth multiline rows={2} size="small"
+            value={int[f.key]} onChange={e => onChange({ ...int, [f.key]: e.target.value })}
+            placeholder={f.hint}
+            helperText={f.required && (!int[f.key] || int[f.key].trim().length < 15) ? f.hint : ''}
+            FormHelperTextProps={{ sx: { color: 'text.disabled', fontSize: 11 } }}
+          />
+        </Box>
+      ))}
+      <Button fullWidth variant="contained" color="success" size="large" sx={{ mt: 1, borderRadius: 3 }}
+        onClick={() => valid ? onNext() : setShowHints(true)}>
+        Hoàn thành Giải Nghĩa →
+      </Button>
+    </Box>
+  );
+}
+
+function AppStep({ app, onChange, onNext, unlocked }) {
+  const [showHints, setShowHints] = useState(false);
+  const valid = validateApp(app);
+  const fields = [
+    { key: 'specificAction', label: '1. Tôi cần làm gì cụ thể?', hint: 'Phải cụ thể — không cho "sống tốt hơn"', required: true },
+    { key: 'when', label: '2. Khi nào tôi sẽ làm điều đó?', hint: 'Phải có thời gian cụ thể: sáng mai, tuần này...', required: true },
+    { key: 'obstacles', label: '3. Có trở ngại nào có thể gặp?', hint: 'Thói quen cũ, hoàn cảnh...' },
+    { key: 'changeToday', label: '4. Tôi thay đổi điều gì ngay hôm nay?', hint: '1 thay đổi nhỏ, cụ thể, có thể làm ngay', required: true },
+  ];
+  if (!unlocked) return (
+    <Box sx={{ textAlign: 'center', py: 4 }}>
+      <Typography variant="body2" color="textSecondary">🔒 Hoàn thành Giải Nghĩa trước để mở khóa Áp Dụng</Typography>
+    </Box>
+  );
+  return (
+    <Box>
+      {!valid && showHints && (
+        <Box sx={{ mb: 2, px: 1.5, py: 1, bgcolor: 'warning.50', borderRadius: 2, border: '1px solid', borderColor: 'warning.200' }}>
+          <Typography variant="caption" color="warning.dark">Cần điền đủ 3 câu bắt buộc (≥10 ký tự)</Typography>
+        </Box>
+      )}
+      {fields.map(f => (
+        <Box key={f.key} sx={{ mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+            {f.label}{f.required && <span style={{ color: '#d32f2f' }}> *</span>}
+          </Typography>
+          <TextField fullWidth multiline rows={2} size="small"
+            value={app[f.key]} onChange={e => onChange({ ...app, [f.key]: e.target.value })}
+            placeholder={f.hint}
+            helperText={f.required && (!app[f.key] || app[f.key].trim().length < 10) ? f.hint : ''}
+            FormHelperTextProps={{ sx: { color: 'text.disabled', fontSize: 11 } }}
+          />
+        </Box>
+      ))}
+      <Button fullWidth variant="contained" size="large" sx={{ mt: 1, borderRadius: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+        onClick={() => valid ? onNext() : setShowHints(true)}>
+        ✅ Hoàn thành Áp Dụng
+      </Button>
+    </Box>
+  );
+}
+
+function CompletionScreen({ session, onSaveAndClose, onExportWord }) {
+  return (
+    <Box sx={{ textAlign: 'center', py: 3 }}>
+      <Typography variant="h4" sx={{ mb: 1 }}>✨</Typography>
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>You have shined like a light today</Typography>
+      <Typography variant="body2" color="textSecondary" sx={{ mb: 2, fontStyle: 'italic' }}>{session.passage}</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+        {['Quan Sát ✔', 'Giải Nghĩa ✔', 'Áp Dụng ✔'].map(s => (
+          <Chip key={s} label={s} color="success" size="small" />
+        ))}
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <Button variant="contained" color="primary" onClick={onSaveAndClose} sx={{ borderRadius: 3 }}>
+          Lưu &amp; Đóng
+        </Button>
+        <Button variant="outlined" startIcon={<IconFileWord size={16} />} onClick={onExportWord} sx={{ borderRadius: 3 }}>
+          Xuất Word
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+function StudyPanel({ open, studySessions, activeSession, setActiveSession, selectedBook, chapterFrom, bible, onSessions, bookName }) {
+  const [oiaTab, setOiaTab] = useState(0);
+  const [selectFrom, setSelectFrom] = useState(1);
+  const [selectTo, setSelectTo] = useState(1);
+  const saveTmr = useRef(null);
+
+  if (!open) return null;
+
+  const chapterVerses = (bible && bible[selectedBook] && bible[selectedBook][chapterFrom - 1]) || [];
+  const totalVerses = chapterVerses.length;
+
+  async function persistSession(session) {
+    const payload = {
+      id: session.id || null,
+      bookId: selectedBook, chapter: chapterFrom,
+      verseFrom: session.verseFrom, verseTo: session.verseTo, passage: session.passage,
+      observationJson: JSON.stringify(session.obs || emptyObs()),
+      interpretationJson: JSON.stringify(session.int || emptyInt()),
+      applicationJson: JSON.stringify(session.app || emptyApp()),
+      isCompleted: session.step === 'done',
+      completedStepsJson: JSON.stringify(session.completedSteps || []),
+      shareMode: 'private',
+    };
+    return apiClient.post('/api/bible-study-sessions', payload);
+  }
+
+  function scheduleAutoSave(session) {
+    clearTimeout(saveTmr.current);
+    saveTmr.current = setTimeout(async () => {
+      try {
+        const saved = await persistSession(session);
+        if (saved?.id && !session.id) setActiveSession(prev => prev ? { ...prev, id: saved.id } : prev);
+        const list = await apiClient.get(`/api/bible-study-sessions?book=${selectedBook}&chapter=${chapterFrom}`);
+        onSessions(Array.isArray(list) ? list : []);
+      } catch {}
+    }, 800);
+  }
+
+  function updateObs(obs) { const next = { ...activeSession, obs }; setActiveSession(next); scheduleAutoSave(next); }
+  function updateInt(int) { const next = { ...activeSession, int }; setActiveSession(next); scheduleAutoSave(next); }
+  function updateApp(app) { const next = { ...activeSession, app }; setActiveSession(next); scheduleAutoSave(next); }
+
+  function advanceStep(newStep, completedKey) {
+    const next = { ...activeSession, step: newStep, completedSteps: [...(activeSession.completedSteps || []), completedKey] };
+    setActiveSession(next);
+    setOiaTab(newStep === 'app' ? 2 : newStep === 'int' ? 1 : 0);
+    scheduleAutoSave(next);
+  }
+
+  async function finishApp() {
+    const next = { ...activeSession, step: 'done', completedSteps: [...(activeSession.completedSteps || []), 'app'] };
+    setActiveSession(next);
+    try {
+      const saved = await persistSession(next);
+      if (saved?.id) setActiveSession(prev => prev ? { ...prev, id: saved.id } : prev);
+      const list = await apiClient.get(`/api/bible-study-sessions?book=${selectedBook}&chapter=${chapterFrom}`);
+      onSessions(Array.isArray(list) ? list : []);
+    } catch {}
+  }
+
+  async function handleSaveAndClose() {
+    try {
+      const list = await apiClient.get(`/api/bible-study-sessions?book=${selectedBook}&chapter=${chapterFrom}`);
+      onSessions(Array.isArray(list) ? list : []);
+    } catch {}
+    setActiveSession(null);
+  }
+
+  async function handleDeleteSession(id) {
+    try {
+      await apiClient.delete(`/api/bible-study-sessions/${id}`);
+      const list = await apiClient.get(`/api/bible-study-sessions?book=${selectedBook}&chapter=${chapterFrom}`);
+      onSessions(Array.isArray(list) ? list : []);
+    } catch {}
+  }
+
+  function handleContinueSession(session) {
+    const obs = safeParseJson(session.observationJson, emptyObs());
+    const int = safeParseJson(session.interpretationJson, emptyInt());
+    const app = safeParseJson(session.applicationJson, emptyApp());
+    const steps = safeParseJson(session.completedStepsJson, []);
+    const step = steps.includes('app') ? 'done' : steps.includes('int') ? 'app' : steps.includes('obs') ? 'int' : 'obs';
+    setActiveSession({ id: session.id, verseFrom: session.verseFrom, verseTo: session.verseTo, passage: session.passage, step, obs, int, app, completedSteps: steps });
+    setOiaTab(step === 'app' ? 2 : step === 'int' ? 1 : 0);
+  }
+
+  function startNew() {
+    setSelectFrom(1); setSelectTo(1);
+    setActiveSession({ id: null, verseFrom: 1, verseTo: 1, passage: '', step: 'select', obs: emptyObs(), int: emptyInt(), app: emptyApp(), completedSteps: [] });
+  }
+
+  function handleStartStudy() {
+    const passageTxt = `${bookName} ${chapterFrom}:${selectFrom}${selectTo !== selectFrom ? `–${selectTo}` : ''}`;
+    const next = { ...activeSession, verseFrom: selectFrom, verseTo: selectTo, passage: passageTxt, step: 'obs' };
+    setActiveSession(next);
+    setOiaTab(0);
+    scheduleAutoSave(next);
+  }
+
+  const inProgress = studySessions.find(s => !s.isCompleted);
+  const isIntUnlocked = activeSession && (activeSession.completedSteps || []).includes('obs');
+  const isAppUnlocked = activeSession && (activeSession.completedSteps || []).includes('int');
+
+  return (
+    <Card sx={{ borderRadius: 2, mt: 2, border: '2px solid', borderColor: 'primary.200' }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>📖 Học Kinh Thánh Quy Nạp</Typography>
+          <Typography variant="caption" color="textSecondary">{bookName} {chapterFrom}</Typography>
+        </Box>
+
+        {/* No active session */}
+        {!activeSession && (
+          <>
+            {inProgress && (
+              <Box sx={{ mb: 2, p: 1.5, bgcolor: 'info.50', borderRadius: 2, border: '1px solid', borderColor: 'info.200', cursor: 'pointer' }}
+                onClick={() => handleContinueSession(inProgress)}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'info.dark' }}>↩ Tiếp tục: {inProgress.passage}</Typography>
+                <Typography variant="caption" color="textSecondary">Chưa hoàn thành — bấm để tiếp tục</Typography>
+              </Box>
+            )}
+            {studySessions.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>Đã học trong chương này:</Typography>
+                {studySessions.map(s => <StudyNoteCard key={s.id} session={s} onContinue={handleContinueSession} onDelete={handleDeleteSession} />)}
+              </Box>
+            )}
+            <Button fullWidth variant="outlined" onClick={startNew} sx={{ borderRadius: 2 }}>+ Bắt đầu nghiên cứu mới</Button>
+          </>
+        )}
+
+        {/* Select verse range */}
+        {activeSession && activeSession.step === 'select' && (
+          <Box>
+            <Typography variant="body2" sx={{ mb: 2 }}>Chọn đoạn câu để nghiên cứu ({bookName} {chapterFrom}):</Typography>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+              <FormControl size="small" sx={{ minWidth: 80 }}>
+                <InputLabel>Từ câu</InputLabel>
+                <Select value={selectFrom} label="Từ câu" onChange={e => { setSelectFrom(e.target.value); if (e.target.value > selectTo) setSelectTo(e.target.value); }}>
+                  {Array.from({ length: totalVerses }, (_, i) => i + 1).map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 80 }}>
+                <InputLabel>Đến câu</InputLabel>
+                <Select value={selectTo} label="Đến câu" onChange={e => setSelectTo(e.target.value)}>
+                  {Array.from({ length: totalVerses }, (_, i) => i + 1).filter(v => v >= selectFrom).map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 2, maxHeight: 160, overflow: 'auto' }}>
+              {Array.from({ length: selectTo - selectFrom + 1 }, (_, i) => selectFrom + i).map(v => (
+                <Typography key={v} variant="body2" sx={{ mb: 0.5 }}>
+                  <strong>{v}</strong> {chapterVerses[v - 1] || ''}
+                </Typography>
+              ))}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={() => setActiveSession(null)} variant="outlined" sx={{ borderRadius: 2 }}>Hủy</Button>
+              <Button onClick={handleStartStudy} variant="contained" sx={{ borderRadius: 2, flex: 1 }}>Bắt đầu →</Button>
+            </Box>
+          </Box>
+        )}
+
+        {/* OIA flow */}
+        {activeSession && !['select','done'].includes(activeSession.step) && (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main', flex: 1 }}>{activeSession.passage}</Typography>
+              <Button size="small" variant="text" onClick={() => setActiveSession(null)} sx={{ fontSize: 11 }}>Thu gọn</Button>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 2 }}>
+              {[['obs','1. Quan Sát'],['int','2. Giải Nghĩa'],['app','3. Áp Dụng']].map(([k,l], idx) => {
+                const done = (activeSession.completedSteps || []).includes(k);
+                return (
+                  <Button key={k} size="small" variant={oiaTab === idx ? 'contained' : 'outlined'} color={done ? 'success' : 'primary'}
+                    onClick={() => setOiaTab(idx)} sx={{ flex: 1, fontSize: 11, py: 0.5 }}>
+                    {done ? '✔ ' : ''}{l}
+                  </Button>
+                );
+              })}
+            </Box>
+            {oiaTab === 0 && <ObsStep obs={activeSession.obs || emptyObs()} onChange={updateObs} onNext={() => advanceStep('int','obs')} />}
+            {oiaTab === 1 && <IntStep int={activeSession.int || emptyInt()} onChange={updateInt} onNext={() => advanceStep('app','int')} unlocked={isIntUnlocked} />}
+            {oiaTab === 2 && <AppStep app={activeSession.app || emptyApp()} onChange={updateApp} onNext={finishApp} unlocked={isAppUnlocked} />}
+          </Box>
+        )}
+
+        {/* Completion */}
+        {activeSession && activeSession.step === 'done' && (
+          <CompletionScreen session={activeSession} onSaveAndClose={handleSaveAndClose}
+            onExportWord={() => exportStudyWord({
+              passage: activeSession.passage,
+              observationJson: JSON.stringify(activeSession.obs || emptyObs()),
+              interpretationJson: JSON.stringify(activeSession.int || emptyInt()),
+              applicationJson: JSON.stringify(activeSession.app || emptyApp()),
+            })} />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
