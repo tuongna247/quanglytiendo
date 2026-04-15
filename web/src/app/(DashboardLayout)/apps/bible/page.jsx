@@ -374,7 +374,7 @@ const WORD_WISE_MARKS = [
   { value: 3, label: 'Nhiều' },
 ];
 
-function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize, dualVersion, onDualVersionToggle, wordWise, wordWiseLevel, onWordWiseToggle, onWordWiseLevelChange }) {
+function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagraphToggle, spotlight, onSpotlight, fontFamily, onFont, fontSize, onFontSize, dualVersion, onDualVersionToggle, wordWise, wordWiseLevel, onWordWiseToggle, onWordWiseLevelChange, studyMode, onStudyModeToggle }) {
   const [wwOpen, setWwOpen] = useState(false);
   return (
     <Box>
@@ -434,6 +434,14 @@ function HighlightToolbar({ activeColor, onColorChange, paragraphMode, onParagra
             <IconAbc size={20} />
           </IconButton>
         </Tooltip>
+        {/* Study Mode */}
+        {onStudyModeToggle && (
+          <Tooltip title={studyMode ? 'Đóng panel nghiên cứu KT' : 'Học Kinh Thánh quy nạp (OIA)'}>
+            <IconButton size="small" onClick={onStudyModeToggle} color={studyMode ? 'primary' : 'default'}>
+              <IconNotebook size={18} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
       {/* Word Wise inline panel — no Popover so Slider drag works */}
       {wwOpen && (
@@ -1066,6 +1074,9 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
   const wordWiseVocab = wordWise ? getActiveVocab(wordWiseLevel) : null;
   const hlKey = `qlTD_hl_${selectedBook}_${chapterFrom}`;
   const hlSaveTimerRef = useRef(null);
+  const [studyMode, setStudyMode] = useState(false);
+  const [studySessions, setStudySessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
 
   useEffect(() => {
     loadBible().then(data => { setBible(data); setLoading(false); });
@@ -1099,6 +1110,16 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
     setWordWiseLevel(v);
     try { localStorage.setItem('qlTD_bible_ww_level', String(v)); } catch {}
   }
+
+  // Load study sessions when chapter changes
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.get(`/api/bible-study-sessions?book=${selectedBook}&chapter=${chapterFrom}`)
+      .then(data => { if (!cancelled) setStudySessions(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setStudySessions([]); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBook, chapterFrom]);
 
   // Load highlights: try API first, fallback to localStorage
   useEffect(() => {
@@ -1249,6 +1270,7 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
             fontSize={fontSize} onFontSize={setFontSize}
             dualVersion={dualVersion} onDualVersionToggle={toggleDualVersion}
             wordWise={wordWise} wordWiseLevel={wordWiseLevel} onWordWiseToggle={toggleWordWise} onWordWiseLevelChange={changeWordWiseLevel}
+            studyMode={studyMode} onStudyModeToggle={() => setStudyMode(m => !m)}
           />
           {loading ? <CircularProgress /> : (
             <>
@@ -1339,9 +1361,23 @@ function ReaderTab({ initBook, initFrom, initTo, onNavigate, completed, toggling
             fontSize={fontSize} onFontSize={setFontSize}
             dualVersion={dualVersion} onDualVersionToggle={toggleDualVersion}
             wordWise={wordWise} wordWiseLevel={wordWiseLevel} onWordWiseToggle={toggleWordWise} onWordWiseLevelChange={changeWordWiseLevel}
+            studyMode={studyMode} onStudyModeToggle={() => setStudyMode(m => !m)}
           />
         </CardContent>
       </Card>
+
+      {/* Study Panel */}
+      <StudyPanel
+        open={studyMode}
+        studySessions={studySessions}
+        activeSession={activeSession}
+        setActiveSession={setActiveSession}
+        selectedBook={selectedBook}
+        chapterFrom={chapterFrom}
+        bible={bible}
+        onSessions={setStudySessions}
+        bookName={bookName}
+      />
 
       {/* Word Wise banner when not in dual mode */}
       {wordWise && !dualVersion && (
