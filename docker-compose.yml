@@ -2,7 +2,7 @@ services:
   # ── PostgreSQL ────────────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
-    container_name: qltiando_db
+    container_name: qltiendo_db
     environment:
       POSTGRES_DB: QuanLyTienDo
       POSTGRES_USER: postgres
@@ -30,7 +30,7 @@ services:
     build:
       context: ./api/QuanLyTienDo.API
       dockerfile: Dockerfile
-    container_name: qltiando_api
+    container_name: qltiendo_api
     environment:
       ConnectionStrings__DefaultConnection: "Host=shared-postgres;Database=QuanLyTienDo;Username=postgres;Password=${DB_PASSWORD}"
       Jwt__Key: "${JWT_KEY}"
@@ -63,7 +63,7 @@ services:
       args:
         API_URL: "http://api:5015"
         NEXT_PUBLIC_API_URL: ""
-    container_name: qltiando_web
+    container_name: qltiendo_web
     depends_on:
       api:
         condition: service_started
