@@ -45,16 +45,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>(e =>
         {
             e.HasKey(u => u.Id);
-            e.Property(u => u.Id).HasDefaultValueSql("NEWID()");
-            e.Property(u => u.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(u => u.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(u => u.CreatedAt).HasDefaultValueSql("now()");
             e.HasIndex(u => u.Username).IsUnique();
-            e.HasIndex(u => u.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
+            e.HasIndex(u => u.Email).IsUnique().HasFilter("\"Email\" IS NOT NULL");
         });
 
         modelBuilder.Entity<PasswordResetToken>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
             e.HasOne(x => x.User)
              .WithMany()
              .HasForeignKey(x => x.UserId)
@@ -65,9 +65,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CalendarEvent>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.CalendarEvents)
              .HasForeignKey(x => x.UserId)
@@ -78,9 +78,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TaskItem>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.Tasks)
              .HasForeignKey(x => x.UserId)
@@ -91,9 +91,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Transaction>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
             e.HasOne(x => x.User)
              .WithMany(u => u.Transactions)
@@ -105,9 +105,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PlannerItem>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.PlannerItems)
              .HasForeignKey(x => x.UserId)
@@ -118,8 +118,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<WeightLog>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.WeightKg).HasColumnType("decimal(5,2)");
             e.Property(x => x.BodyFatPct).HasColumnType("decimal(5,2)");
             e.HasOne(x => x.User)
@@ -132,9 +132,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ExerciseSession>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.ExerciseSessions)
              .HasForeignKey(x => x.UserId)
@@ -145,9 +145,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<HealthGoal>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.StartWeightKg).HasColumnType("decimal(5,2)");
             e.Property(x => x.TargetWeightKg).HasColumnType("decimal(5,2)");
             e.Property(x => x.HeightCm).HasColumnType("decimal(5,2)");
@@ -161,9 +161,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BodyCheckIn>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.SleepHours).HasColumnType("decimal(4,2)");
             e.HasOne(x => x.User)
              .WithMany(u => u.BodyCheckIns)
@@ -175,9 +175,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DailyNote>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.DailyNotes)
              .HasForeignKey(x => x.UserId)
@@ -188,9 +188,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DailyDevotion>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.DailyDevotions)
              .HasForeignKey(x => x.UserId)
@@ -201,8 +201,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BibleReadingPlan>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.ImportedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.ImportedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.BibleReadingPlans)
              .HasForeignKey(x => x.UserId)
@@ -213,7 +213,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BibleReadingDay>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
             e.HasOne(x => x.Plan)
              .WithMany(p => p.Days)
              .HasForeignKey(x => x.PlanId)
@@ -224,8 +224,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BibleReadingLog>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasIndex(x => new { x.UserId, x.Date }).IsUnique();
             e.HasOne(x => x.User)
              .WithMany(u => u.BibleReadingLogs)
@@ -237,9 +237,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserBiblePlanConfig>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.GeneratedPlanJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.GeneratedPlanJson).HasColumnType("text");
             e.HasIndex(x => x.UserId).IsUnique();
             e.HasOne(x => x.User)
              .WithOne(u => u.BiblePlanConfig)
@@ -251,9 +251,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MemorizePassage>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.AddedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.AddedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.User)
              .WithMany(u => u.MemorizePassages)
              .HasForeignKey(x => x.UserId)
@@ -264,9 +264,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FixedExpense>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.Property(x => x.Amount).HasColumnType("decimal(18,2)");
             e.HasOne(x => x.User)
              .WithMany(u => u.FixedExpenses)
@@ -278,8 +278,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FixedExpenseApplication>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.AppliedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.AppliedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.FixedExpense)
              .WithMany(f => f.Applications)
              .HasForeignKey(x => x.FixedExpenseId)
@@ -290,9 +290,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EbookBook>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.UploadedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.PagesJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.UploadedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.PagesJson).HasColumnType("text");
             e.HasOne(x => x.User)
              .WithMany(u => u.EbookBooks)
              .HasForeignKey(x => x.UserId)
@@ -303,8 +303,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EbookHighlight>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Book)
              .WithMany(b => b.Highlights)
              .HasForeignKey(x => x.BookId)
@@ -315,9 +315,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EbookComment>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Book)
              .WithMany(b => b.Comments)
              .HasForeignKey(x => x.BookId)
@@ -328,8 +328,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EbookBookmark>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasOne(x => x.Book)
              .WithMany(b => b.Bookmarks)
              .HasForeignKey(x => x.BookId)
@@ -340,8 +340,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EbookProgress>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.LastReadAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.LastReadAt).HasDefaultValueSql("now()");
             e.HasIndex(x => new { x.UserId, x.BookId }).IsUnique();
             e.HasOne(x => x.Book)
              .WithMany(b => b.Progresses)
@@ -353,9 +353,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Friendship>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasIndex(x => new { x.RequesterId, x.AddresseeId }).IsUnique();
             // Restrict to avoid multiple cascade paths (SQL Server limitation)
             e.HasOne(x => x.Requester)
@@ -372,8 +372,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserShareSettings>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasIndex(x => x.UserId).IsUnique();
             e.HasOne(x => x.User)
              .WithOne()
@@ -385,8 +385,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ChatMessage>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             // Restrict to avoid multiple cascade paths (SQL Server limitation)
             e.HasOne(x => x.Sender)
              .WithMany()
@@ -402,12 +402,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BibleStudySession>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.ObservationJson).HasColumnType("nvarchar(max)");
-            e.Property(x => x.InterpretationJson).HasColumnType("nvarchar(max)");
-            e.Property(x => x.ApplicationJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.ObservationJson).HasColumnType("text");
+            e.Property(x => x.InterpretationJson).HasColumnType("text");
+            e.Property(x => x.ApplicationJson).HasColumnType("text");
             e.HasIndex(x => new { x.UserId, x.BookId, x.Chapter });
             e.HasOne(x => x.User)
              .WithMany()
@@ -419,9 +419,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BibleVerseHighlight>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasDefaultValueSql("NEWID()");
-            e.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
-            e.Property(x => x.HighlightJson).HasColumnType("nvarchar(max)");
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.HighlightJson).HasColumnType("text");
             e.HasIndex(x => new { x.UserId, x.BookId, x.Chapter }).IsUnique();
             e.HasOne(x => x.User)
              .WithMany()
