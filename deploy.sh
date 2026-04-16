@@ -18,12 +18,11 @@ fi
 echo "[1/3] Build & start containers..."
 docker compose up -d --build
 
-# 3. Đợi DB healthy
-echo "[2/3] Đợi SQL Server sẵn sàng..."
+# 3. Đợi PostgreSQL healthy
+echo "[2/3] Đợi PostgreSQL sẵn sàng..."
 for i in $(seq 1 30); do
-  if docker compose exec -T db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa \
-      -P "$(grep DB_SA_PASSWORD .env | cut -d= -f2)" -C -Q "SELECT 1" &>/dev/null; then
-    echo "  SQL Server sẵn sàng!"
+  if docker compose exec -T db pg_isready -U postgres -d QuanLyTienDo &>/dev/null; then
+    echo "  PostgreSQL sẵn sàng!"
     break
   fi
   echo "  Đợi... ($i/30)"
