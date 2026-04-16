@@ -9,8 +9,8 @@ import { AuthContextProvider } from "./context/AuthContext";
 
 
 export const metadata = {
-  title: 'Vinaday Admin',
-  description: 'Vinaday Admin Panel',
+  title: 'Biblical discipline',
+  description: 'Biblical discipline Panel',
 }
 
 export default function RootLayout({ children }) {
