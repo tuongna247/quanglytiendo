@@ -41,7 +41,7 @@ services:
       ASPNETCORE_ENVIRONMENT: "Production"
       SendGrid__ApiKey: "${SENDGRID_API_KEY:-}"
       SendGrid__FromEmail: "${SENDGRID_FROM_EMAIL:-noreply@example.com}"
-      App__Url: "${APP_URL:-http://localhost:3010}"
+      App__Url: "${APP_URL:-https://tasks.kinhthanhmoingay.com}"
     depends_on:
       db:
         condition: service_healthy
@@ -62,6 +62,7 @@ services:
       dockerfile: Dockerfile
       args:
         API_URL: "http://api:5015"
+        NEXT_PUBLIC_API_URL: ""
     container_name: qltiando_web
     depends_on:
       api:
