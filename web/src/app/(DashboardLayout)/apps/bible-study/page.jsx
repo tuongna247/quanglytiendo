@@ -278,9 +278,9 @@ export default function BibleStudyPage() {
 
       {/* ── Study view ── */}
       {view === 'study' && (
-        <Grid container spacing={2}>
-          {/* Left: Bible text (accordion) */}
-          <Grid item xs={12} md={5}>
+        <Box display="flex" flexDirection="column" gap={2}>
+          {/* Bible text (accordion) */}
+          <Box>
             <Card variant="outlined">
               {/* Accordion header */}
               <Box
@@ -389,10 +389,10 @@ export default function BibleStudyPage() {
                 </Box>
               </Collapse>
             </Card>
-          </Grid>
+          </Box>
 
-          {/* Right: OIA form */}
-          <Grid item xs={12} md={7}>
+          {/* OIA form */}
+          <Box>
             <Card variant="outlined">
               <Box sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', p: 2 }}>
 
@@ -449,8 +449,8 @@ export default function BibleStudyPage() {
                 </Button>
               </Box>
             </Card>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       )}
 
       <Snackbar open={!!toast} autoHideDuration={3000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
