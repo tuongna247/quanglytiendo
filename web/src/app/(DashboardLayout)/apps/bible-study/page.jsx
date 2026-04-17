@@ -18,6 +18,7 @@ import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import CircularProgress from '@mui/material/CircularProgress';
 import Tooltip from '@mui/material/Tooltip';
+import Collapse from '@mui/material/Collapse';
 import {
   IconHistory,
   IconArrowLeft,
@@ -28,6 +29,8 @@ import {
   IconTextIncrease,
   IconTextDecrease,
   IconBook,
+  IconChevronDown,
+  IconChevronUp,
 } from '@tabler/icons-react';
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -54,6 +57,13 @@ const CHAPTER_COUNTS = {
   tt:3,phm:1,hb:13,jm:5,'1pe':5,'2pe':3,'1jo':5,'2jo':1,'3jo':1,jd:1,re:22,
 };
 
+const FONTS = [
+  { label: 'Mặc định', value: 'inherit' },
+  { label: 'Serif', value: 'Georgia, serif' },
+  { label: 'Times', value: '"Times New Roman", serif' },
+  { label: 'Palatino', value: '"Palatino Linotype", serif' },
+];
+
 let bibleCache = null;
 async function loadBible() {
   if (bibleCache) return bibleCache;
@@ -72,10 +82,8 @@ const defaultApp = () => ({ specificAction: '', when: '', obstacles: '', changeT
 
 const safeJson = (str, fallback) => { try { return JSON.parse(str) || fallback; } catch { return fallback; } };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function passageLabel(session) {
@@ -83,10 +91,27 @@ function passageLabel(session) {
   return `${book} ${session.chapter}:${session.verseFrom}–${session.verseTo}`;
 }
 
+// ── OIA field component (single-row textarea) ─────────────────────────────────
+function OField({ label, value, onChange }) {
+  return (
+    <TextField
+      fullWidth
+      multiline
+      minRows={1}
+      maxRows={4}
+      label={label}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      size="small"
+      sx={{ '& .MuiInputBase-root': { alignItems: 'flex-start' } }}
+    />
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function BibleStudyPage() {
   const { user } = useAuth();
-  const [view, setView] = useState('study'); // 'study' | 'history'
+  const [view, setView] = useState('study');
 
   // passage selection
   const [book, setBook] = useState('ph');
@@ -94,6 +119,8 @@ export default function BibleStudyPage() {
   const [verseFrom, setVerseFrom] = useState(1);
   const [verseTo, setVerseTo] = useState(5);
   const [fontSize, setFontSize] = useState(16);
+  const [fontFamily, setFontFamily] = useState('Georgia, serif');
+  const [bibleOpen, setBibleOpen] = useState(true); // accordion
 
   // bible text
   const [bibleData, setBibleData] = useState(null);
@@ -114,13 +141,11 @@ export default function BibleStudyPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // load bible
   useEffect(() => {
     setLoadingBible(true);
     loadBible().then(d => { setBibleData(d); setLoadingBible(false); });
   }, []);
 
-  // load history when switching to history view
   useEffect(() => {
     if (view !== 'history') return;
     setLoadingHistory(true);
@@ -133,6 +158,7 @@ export default function BibleStudyPage() {
   const chapterCount = CHAPTER_COUNTS[book] || 1;
   const verses = bibleData?.[book]?.[chapter - 1] || [];
   const displayVerses = verses.slice(verseFrom - 1, verseTo);
+  const verseCountInChapter = verses.length || 30;
 
   const resetForm = () => {
     setSessionId(null);
@@ -143,31 +169,25 @@ export default function BibleStudyPage() {
   };
 
   const handleBookChange = (b) => {
-    setBook(b);
-    setChapter(1);
-    setVerseFrom(1);
+    setBook(b); setChapter(1); setVerseFrom(1);
     setVerseTo(Math.min(5, CHAPTER_COUNTS[b] || 1));
     resetForm();
   };
 
   const handleChapterChange = (c) => {
-    setChapter(c);
-    setVerseFrom(1);
-    setVerseTo(5);
-    resetForm();
+    setChapter(c); setVerseFrom(1); setVerseTo(5); resetForm();
   };
 
   const handleLoadSession = (s) => {
-    setBook(s.bookId);
-    setChapter(s.chapter);
-    setVerseFrom(s.verseFrom);
-    setVerseTo(s.verseTo);
+    setBook(s.bookId); setChapter(s.chapter);
+    setVerseFrom(s.verseFrom); setVerseTo(s.verseTo);
     setSessionId(s.id);
     setObs(safeJson(s.observationJson, defaultObs()));
     setInt(safeJson(s.interpretationJson, defaultInt()));
     setApp(safeJson(s.applicationJson, defaultApp()));
     setIsCompleted(s.isCompleted);
     setView('study');
+    setBibleOpen(true);
   };
 
   const handleSave = useCallback(async () => {
@@ -175,17 +195,12 @@ export default function BibleStudyPage() {
     try {
       const payload = {
         id: sessionId || undefined,
-        bookId: book,
-        chapter,
-        verseFrom,
-        verseTo,
+        bookId: book, chapter, verseFrom, verseTo,
         passage: `${BOOK_ID_TO_NAME[book] || book} ${chapter}:${verseFrom}–${verseTo}`,
         observationJson: JSON.stringify(obs),
         interpretationJson: JSON.stringify(int_),
         applicationJson: JSON.stringify(app),
-        isCompleted,
-        completedStepsJson: '[]',
-        shareMode: 'private',
+        isCompleted, completedStepsJson: '[]', shareMode: 'private',
       };
       const saved = await apiClient.post('/api/bible-study-sessions', payload);
       setSessionId(saved.id);
@@ -208,8 +223,6 @@ export default function BibleStudyPage() {
     }
   };
 
-  const verseCountInChapter = verses.length || 30;
-
   return (
     <PageContainer title="Học Kinh Thánh" description="Phương pháp quy nạp OIA">
       {/* ── Header ── */}
@@ -221,17 +234,11 @@ export default function BibleStudyPage() {
         <Box display="flex" gap={1}>
           {view === 'study' ? (
             <>
-              <Button variant="outlined" size="small" startIcon={<IconPlus size={16} />} onClick={() => { resetForm(); }}>
-                Mới
-              </Button>
-              <Button variant="outlined" size="small" startIcon={<IconHistory size={16} />} onClick={() => setView('history')}>
-                Lịch sử
-              </Button>
+              <Button variant="outlined" size="small" startIcon={<IconPlus size={16} />} onClick={resetForm}>Mới</Button>
+              <Button variant="outlined" size="small" startIcon={<IconHistory size={16} />} onClick={() => setView('history')}>Lịch sử</Button>
             </>
           ) : (
-            <Button variant="outlined" size="small" startIcon={<IconArrowLeft size={16} />} onClick={() => setView('study')}>
-              Quay lại
-            </Button>
+            <Button variant="outlined" size="small" startIcon={<IconArrowLeft size={16} />} onClick={() => setView('study')}>Quay lại</Button>
           )}
         </Box>
       </Box>
@@ -247,7 +254,7 @@ export default function BibleStudyPage() {
             <Grid container spacing={2}>
               {history.map(s => (
                 <Grid item xs={12} sm={6} md={4} key={s.id}>
-                  <Card variant="outlined" sx={{ height: '100%' }}>
+                  <Card variant="outlined">
                     <CardContent>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                         <Box>
@@ -257,12 +264,8 @@ export default function BibleStudyPage() {
                         {s.isCompleted && <Chip label="Hoàn thành" size="small" color="success" />}
                       </Box>
                       <Box display="flex" gap={1} mt={2}>
-                        <Button size="small" variant="contained" startIcon={<IconEdit size={14} />} onClick={() => handleLoadSession(s)}>
-                          Mở lại
-                        </Button>
-                        <IconButton size="small" color="error" onClick={() => handleDelete(s.id)}>
-                          <IconTrash size={16} />
-                        </IconButton>
+                        <Button size="small" variant="contained" startIcon={<IconEdit size={14} />} onClick={() => handleLoadSession(s)}>Mở lại</Button>
+                        <IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><IconTrash size={16} /></IconButton>
                       </Box>
                     </CardContent>
                   </Card>
@@ -275,194 +278,169 @@ export default function BibleStudyPage() {
 
       {/* ── Study view ── */}
       {view === 'study' && (
-        <Grid container spacing={2} sx={{ height: 'calc(100vh - 180px)' }}>
-          {/* Left: Bible text */}
-          <Grid item xs={12} md={5} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Card variant="outlined" sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <CardContent sx={{ pb: 1 }}>
-                {/* Passage selector */}
-                <Grid container spacing={1} alignItems="center">
-                  <Grid item xs={12} sm={5}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Sách</InputLabel>
-                      <Select value={book} label="Sách" onChange={e => handleBookChange(e.target.value)}>
-                        {BOOK_ORDER.map(b => (
-                          <MenuItem key={b} value={b}>{BOOK_ID_TO_NAME[b] || b}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={4} sm={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Chương</InputLabel>
-                      <Select value={chapter} label="Chương" onChange={e => handleChapterChange(Number(e.target.value))}>
-                        {Array.from({ length: chapterCount }, (_, i) => i + 1).map(c => (
-                          <MenuItem key={c} value={c}>{c}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={4} sm={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Từ câu</InputLabel>
-                      <Select value={verseFrom} label="Từ câu" onChange={e => { const v = Number(e.target.value); setVerseFrom(v); if (verseTo < v) setVerseTo(v); resetForm(); }}>
-                        {Array.from({ length: verseCountInChapter || 30 }, (_, i) => i + 1).map(v => (
-                          <MenuItem key={v} value={v}>{v}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={4} sm={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Đến câu</InputLabel>
-                      <Select value={verseTo} label="Đến câu" onChange={e => { setVerseTo(Number(e.target.value)); resetForm(); }}>
-                        {Array.from({ length: verseCountInChapter || 30 }, (_, i) => i + 1).filter(v => v >= verseFrom).map(v => (
-                          <MenuItem key={v} value={v}>{v}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
+        <Grid container spacing={2}>
+          {/* Left: Bible text (accordion) */}
+          <Grid item xs={12} md={5}>
+            <Card variant="outlined">
+              {/* Accordion header */}
+              <Box
+                display="flex" alignItems="center" justifyContent="space-between"
+                px={2} py={1} sx={{ cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => setBibleOpen(o => !o)}
+              >
+                <Typography variant="subtitle2" fontWeight={700}>
+                  📖 {BOOK_ID_TO_NAME[book]} {chapter}:{verseFrom}–{verseTo}
+                </Typography>
+                <IconButton size="small" onClick={e => { e.stopPropagation(); setBibleOpen(o => !o); }}>
+                  {bibleOpen ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+                </IconButton>
+              </Box>
 
-                {/* Font size control */}
-                <Box display="flex" alignItems="center" gap={1} mt={1}>
-                  <Tooltip title="Chữ nhỏ hơn">
-                    <span>
+              <Collapse in={bibleOpen}>
+                <Divider />
+                <CardContent sx={{ pt: 1, pb: 1 }}>
+                  {/* Passage selector */}
+                  <Grid container spacing={1} alignItems="center">
+                    <Grid item xs={12} sm={5}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Sách</InputLabel>
+                        <Select value={book} label="Sách" onChange={e => handleBookChange(e.target.value)}>
+                          {BOOK_ORDER.map(b => (
+                            <MenuItem key={b} value={b}>{BOOK_ID_TO_NAME[b] || b}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={4} sm={2}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Chương</InputLabel>
+                        <Select value={chapter} label="Chương" onChange={e => handleChapterChange(Number(e.target.value))}>
+                          {Array.from({ length: chapterCount }, (_, i) => i + 1).map(c => (
+                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={4} sm={2}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Từ câu</InputLabel>
+                        <Select value={verseFrom} label="Từ câu" onChange={e => { const v = Number(e.target.value); setVerseFrom(v); if (verseTo < v) setVerseTo(v); }}>
+                          {Array.from({ length: verseCountInChapter }, (_, i) => i + 1).map(v => (
+                            <MenuItem key={v} value={v}>{v}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={4} sm={2}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Đến câu</InputLabel>
+                        <Select value={verseTo} label="Đến câu" onChange={e => setVerseTo(Number(e.target.value))}>
+                          {Array.from({ length: verseCountInChapter }, (_, i) => i + 1).filter(v => v >= verseFrom).map(v => (
+                            <MenuItem key={v} value={v}>{v}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+
+                  {/* Font controls */}
+                  <Box display="flex" alignItems="center" gap={1} mt={1} flexWrap="wrap">
+                    <Tooltip title="Chữ nhỏ hơn"><span>
                       <IconButton size="small" onClick={() => setFontSize(f => Math.max(12, f - 2))} disabled={fontSize <= 12}>
                         <IconTextDecrease size={16} />
                       </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Typography variant="caption" color="text.secondary" minWidth={32} textAlign="center">{fontSize}px</Typography>
-                  <Tooltip title="Chữ lớn hơn">
-                    <span>
+                    </span></Tooltip>
+                    <Typography variant="caption" color="text.secondary" minWidth={30} textAlign="center">{fontSize}px</Typography>
+                    <Tooltip title="Chữ lớn hơn"><span>
                       <IconButton size="small" onClick={() => setFontSize(f => Math.min(28, f + 2))} disabled={fontSize >= 28}>
                         <IconTextIncrease size={16} />
                       </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Typography variant="caption" color="text.secondary" ml={1}>
-                    {BOOK_ID_TO_NAME[book]} {chapter}:{verseFrom}–{verseTo}
-                  </Typography>
+                    </span></Tooltip>
+                    <FormControl size="small" sx={{ minWidth: 130 }}>
+                      <Select value={fontFamily} onChange={e => setFontFamily(e.target.value)} displayEmpty>
+                        {FONTS.map(f => (
+                          <MenuItem key={f.value} value={f.value} sx={{ fontFamily: f.value }}>{f.label}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                </CardContent>
+
+                <Divider />
+
+                {/* Bible text */}
+                <Box sx={{ maxHeight: 360, overflowY: 'auto', p: 2, userSelect: 'text' }}>
+                  {loadingBible ? (
+                    <Box display="flex" justifyContent="center" p={2}><CircularProgress size={24} /></Box>
+                  ) : displayVerses.length === 0 ? (
+                    <Typography color="text.secondary" variant="body2">Không có dữ liệu</Typography>
+                  ) : (
+                    displayVerses.map((text, i) => (
+                      <Box key={i} mb={0.75} display="flex" gap={1}>
+                        <Typography variant="body2" color="text.disabled" sx={{ minWidth: 22, fontSize: fontSize * 0.7, pt: '3px' }}>
+                          {verseFrom + i}
+                        </Typography>
+                        <Typography sx={{ fontSize, lineHeight: 1.7, fontFamily }}>
+                          {text}
+                        </Typography>
+                      </Box>
+                    ))
+                  )}
                 </Box>
-              </CardContent>
-
-              <Divider />
-
-              {/* Bible text */}
-              <Box sx={{ flex: 1, overflowY: 'auto', p: 2, userSelect: 'text' }}>
-                {loadingBible ? (
-                  <Box display="flex" justifyContent="center" p={4}><CircularProgress size={24} /></Box>
-                ) : displayVerses.length === 0 ? (
-                  <Typography color="text.secondary" variant="body2">Không có dữ liệu</Typography>
-                ) : (
-                  displayVerses.map((text, i) => (
-                    <Box key={i} mb={1} display="flex" gap={1}>
-                      <Typography
-                        variant="body2"
-                        color="text.disabled"
-                        sx={{ minWidth: 24, fontSize: fontSize * 0.75, lineHeight: `${fontSize * 1.6}px`, pt: '1px' }}
-                      >
-                        {verseFrom + i}
-                      </Typography>
-                      <Typography sx={{ fontSize, lineHeight: 1.7, fontFamily: 'Georgia, serif' }}>
-                        {text}
-                      </Typography>
-                    </Box>
-                  ))
-                )}
-              </Box>
+              </Collapse>
             </Card>
           </Grid>
 
           {/* Right: OIA form */}
-          <Grid item xs={12} md={7} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Card variant="outlined" sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+          <Grid item xs={12} md={7}>
+            <Card variant="outlined">
+              <Box sx={{ overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', p: 2 }}>
 
                 {/* O — Observation */}
-                <Box mb={3}>
-                  <Typography variant="subtitle1" fontWeight={700} color="warning.main" gutterBottom>
-                    🟡 O — Quan sát
-                  </Typography>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Ai? (Nhân vật chính/phụ)" value={obs.characters} onChange={e => setObs(o => ({ ...o, characters: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Hành động gì? Điều gì xảy ra?" value={obs.actions} onChange={e => setObs(o => ({ ...o, actions: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Khi nào? Ở đâu?" value={obs.whereWhen} onChange={e => setObs(o => ({ ...o, whereWhen: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Từ lặp đi lặp lại?" value={obs.repeatedWords} onChange={e => setObs(o => ({ ...o, repeatedWords: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Từ nối (vì, nên, nhưng, vậy...)" value={obs.connectingWords} onChange={e => setObs(o => ({ ...o, connectingWords: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Mệnh lệnh / Lời hứa / Tương phản" value={obs.commands} onChange={e => setObs(o => ({ ...o, commands: e.target.value }))} size="small" />
-                    </Grid>
-                  </Grid>
-                </Box>
+                <Typography variant="subtitle1" fontWeight={700} color="warning.main" gutterBottom>
+                  🟡 O — Quan sát
+                </Typography>
+                <Grid container spacing={1.5} mb={2}>
+                  <Grid item xs={12}><OField label="Ai? (Nhân vật chính/phụ)" value={obs.characters} onChange={v => setObs(o => ({ ...o, characters: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Hành động gì? Điều gì xảy ra?" value={obs.actions} onChange={v => setObs(o => ({ ...o, actions: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Khi nào? Ở đâu?" value={obs.whereWhen} onChange={v => setObs(o => ({ ...o, whereWhen: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Từ lặp đi lặp lại?" value={obs.repeatedWords} onChange={v => setObs(o => ({ ...o, repeatedWords: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Từ nối (vì, nên, nhưng, vậy...)" value={obs.connectingWords} onChange={v => setObs(o => ({ ...o, connectingWords: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Mệnh lệnh / Lời hứa / Tương phản" value={obs.commands} onChange={v => setObs(o => ({ ...o, commands: v }))} /></Grid>
+                </Grid>
 
                 <Divider sx={{ my: 2 }} />
 
                 {/* I — Interpretation */}
-                <Box mb={3}>
-                  <Typography variant="subtitle1" fontWeight={700} color="info.main" gutterBottom>
-                    🔵 I — Giải nghĩa
-                  </Typography>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12}>
-                      <TextField fullWidth multiline minRows={2} label="Ý chính của đoạn này là gì?" value={int_.mainIdea} onChange={e => setInt(i => ({ ...i, mainIdea: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Đoạn này cho biết gì về Đức Chúa Trời?" value={int_.aboutGod} onChange={e => setInt(i => ({ ...i, aboutGod: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Đoạn này cho biết gì về con người?" value={int_.aboutHuman} onChange={e => setInt(i => ({ ...i, aboutHuman: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Tại sao tác giả viết điều này?" value={int_.whyImportant} onChange={e => setInt(i => ({ ...i, whyImportant: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth multiline minRows={2} label="Bối cảnh lịch sử / văn hóa?" value={int_.context} onChange={e => setInt(i => ({ ...i, context: e.target.value }))} size="small" />
-                    </Grid>
-                  </Grid>
-                </Box>
+                <Typography variant="subtitle1" fontWeight={700} color="info.main" gutterBottom>
+                  🔵 I — Giải nghĩa
+                </Typography>
+                <Grid container spacing={1.5} mb={2}>
+                  <Grid item xs={12}><OField label="Ý chính của đoạn này là gì?" value={int_.mainIdea} onChange={v => setInt(i => ({ ...i, mainIdea: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Về Đức Chúa Trời?" value={int_.aboutGod} onChange={v => setInt(i => ({ ...i, aboutGod: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Về con người?" value={int_.aboutHuman} onChange={v => setInt(i => ({ ...i, aboutHuman: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Tại sao tác giả viết điều này?" value={int_.whyImportant} onChange={v => setInt(i => ({ ...i, whyImportant: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Bối cảnh lịch sử / văn hóa?" value={int_.context} onChange={v => setInt(i => ({ ...i, context: v }))} /></Grid>
+                </Grid>
 
                 <Divider sx={{ my: 2 }} />
 
                 {/* A — Application */}
-                <Box mb={2}>
-                  <Typography variant="subtitle1" fontWeight={700} color="success.main" gutterBottom>
-                    🟢 A — Áp dụng
-                  </Typography>
-                  <Grid container spacing={1.5}>
-                    <Grid item xs={12}>
-                      <TextField fullWidth multiline minRows={2} label="Hành động cụ thể mình sẽ làm là gì?" value={app.specificAction} onChange={e => setApp(a => ({ ...a, specificAction: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField fullWidth multiline minRows={2} label="Khi nào thực hiện?" value={app.when} onChange={e => setApp(a => ({ ...a, when: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField fullWidth multiline minRows={2} label="Trở ngại có thể gặp?" value={app.obstacles} onChange={e => setApp(a => ({ ...a, obstacles: e.target.value }))} size="small" />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField fullWidth multiline minRows={2} label="Thay đổi gì ngay hôm nay?" value={app.changeToday} onChange={e => setApp(a => ({ ...a, changeToday: e.target.value }))} size="small" />
-                    </Grid>
-                  </Grid>
-                </Box>
+                <Typography variant="subtitle1" fontWeight={700} color="success.main" gutterBottom>
+                  🟢 A — Áp dụng
+                </Typography>
+                <Grid container spacing={1.5} mb={1}>
+                  <Grid item xs={12}><OField label="Hành động cụ thể mình sẽ làm là gì?" value={app.specificAction} onChange={v => setApp(a => ({ ...a, specificAction: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Khi nào thực hiện?" value={app.when} onChange={v => setApp(a => ({ ...a, when: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Trở ngại có thể gặp?" value={app.obstacles} onChange={v => setApp(a => ({ ...a, obstacles: v }))} /></Grid>
+                  <Grid item xs={12}><OField label="Thay đổi gì ngay hôm nay?" value={app.changeToday} onChange={v => setApp(a => ({ ...a, changeToday: v }))} /></Grid>
+                </Grid>
               </Box>
 
-              {/* Save button */}
               <Divider />
-              <Box p={2} display="flex" justifyContent="flex-end" gap={1}>
+              <Box p={2} display="flex" justifyContent="flex-end">
                 <Button
                   variant="contained"
-                  color="primary"
                   startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <IconDeviceFloppy size={18} />}
                   onClick={handleSave}
                   disabled={saving}
@@ -475,7 +453,6 @@ export default function BibleStudyPage() {
         </Grid>
       )}
 
-      {/* Toast */}
       <Snackbar open={!!toast} autoHideDuration={3000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         {toast && <Alert severity={toast.type} onClose={() => setToast(null)}>{toast.msg}</Alert>}
       </Snackbar>
