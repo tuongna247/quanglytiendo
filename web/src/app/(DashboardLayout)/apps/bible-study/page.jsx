@@ -119,7 +119,7 @@ export default function BibleStudyPage() {
   const [verseFrom, setVerseFrom] = useState(1);
   const [verseTo, setVerseTo] = useState(5);
   const [fontSize, setFontSize] = useState(16);
-  const [fontFamily, setFontFamily] = useState('Georgia, serif');
+  const [fontFamily, setFontFamily] = useState('inherit');
   const [bibleOpen, setBibleOpen] = useState(true); // accordion
 
   // bible text
@@ -400,14 +400,14 @@ export default function BibleStudyPage() {
                 <Typography variant="subtitle1" fontWeight={700} color="warning.main" gutterBottom>
                   🟡 O — Quan sát
                 </Typography>
-                <Grid container spacing={1.5} mb={2}>
-                  <Grid item xs={12}><OField label="Ai? (Nhân vật chính/phụ)" value={obs.characters} onChange={v => setObs(o => ({ ...o, characters: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Hành động gì? Điều gì xảy ra?" value={obs.actions} onChange={v => setObs(o => ({ ...o, actions: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Khi nào? Ở đâu?" value={obs.whereWhen} onChange={v => setObs(o => ({ ...o, whereWhen: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Từ lặp đi lặp lại?" value={obs.repeatedWords} onChange={v => setObs(o => ({ ...o, repeatedWords: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Từ nối (vì, nên, nhưng, vậy...)" value={obs.connectingWords} onChange={v => setObs(o => ({ ...o, connectingWords: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Mệnh lệnh / Lời hứa / Tương phản" value={obs.commands} onChange={v => setObs(o => ({ ...o, commands: v }))} /></Grid>
-                </Grid>
+                <Box display="flex" flexDirection="column" gap={1.5} mb={2}>
+                  <OField label="Ai? (Nhân vật chính/phụ)" value={obs.characters} onChange={v => setObs(o => ({ ...o, characters: v }))} />
+                  <OField label="Hành động gì? Điều gì xảy ra?" value={obs.actions} onChange={v => setObs(o => ({ ...o, actions: v }))} />
+                  <OField label="Khi nào? Ở đâu?" value={obs.whereWhen} onChange={v => setObs(o => ({ ...o, whereWhen: v }))} />
+                  <OField label="Từ lặp đi lặp lại?" value={obs.repeatedWords} onChange={v => setObs(o => ({ ...o, repeatedWords: v }))} />
+                  <OField label="Từ nối (vì, nên, nhưng, vậy...)" value={obs.connectingWords} onChange={v => setObs(o => ({ ...o, connectingWords: v }))} />
+                  <OField label="Mệnh lệnh / Lời hứa / Tương phản" value={obs.commands} onChange={v => setObs(o => ({ ...o, commands: v }))} />
+                </Box>
 
                 <Divider sx={{ my: 2 }} />
 
@@ -415,13 +415,13 @@ export default function BibleStudyPage() {
                 <Typography variant="subtitle1" fontWeight={700} color="info.main" gutterBottom>
                   🔵 I — Giải nghĩa
                 </Typography>
-                <Grid container spacing={1.5} mb={2}>
-                  <Grid item xs={12}><OField label="Ý chính của đoạn này là gì?" value={int_.mainIdea} onChange={v => setInt(i => ({ ...i, mainIdea: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Về Đức Chúa Trời?" value={int_.aboutGod} onChange={v => setInt(i => ({ ...i, aboutGod: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Về con người?" value={int_.aboutHuman} onChange={v => setInt(i => ({ ...i, aboutHuman: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Tại sao tác giả viết điều này?" value={int_.whyImportant} onChange={v => setInt(i => ({ ...i, whyImportant: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Bối cảnh lịch sử / văn hóa?" value={int_.context} onChange={v => setInt(i => ({ ...i, context: v }))} /></Grid>
-                </Grid>
+                <Box display="flex" flexDirection="column" gap={1.5} mb={2}>
+                  <OField label="Ý chính của đoạn này là gì?" value={int_.mainIdea} onChange={v => setInt(i => ({ ...i, mainIdea: v }))} />
+                  <OField label="Về Đức Chúa Trời?" value={int_.aboutGod} onChange={v => setInt(i => ({ ...i, aboutGod: v }))} />
+                  <OField label="Về con người?" value={int_.aboutHuman} onChange={v => setInt(i => ({ ...i, aboutHuman: v }))} />
+                  <OField label="Tại sao tác giả viết điều này?" value={int_.whyImportant} onChange={v => setInt(i => ({ ...i, whyImportant: v }))} />
+                  <OField label="Bối cảnh lịch sử / văn hóa?" value={int_.context} onChange={v => setInt(i => ({ ...i, context: v }))} />
+                </Box>
 
                 <Divider sx={{ my: 2 }} />
 
@@ -429,12 +429,12 @@ export default function BibleStudyPage() {
                 <Typography variant="subtitle1" fontWeight={700} color="success.main" gutterBottom>
                   🟢 A — Áp dụng
                 </Typography>
-                <Grid container spacing={1.5} mb={1}>
-                  <Grid item xs={12}><OField label="Hành động cụ thể mình sẽ làm là gì?" value={app.specificAction} onChange={v => setApp(a => ({ ...a, specificAction: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Khi nào thực hiện?" value={app.when} onChange={v => setApp(a => ({ ...a, when: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Trở ngại có thể gặp?" value={app.obstacles} onChange={v => setApp(a => ({ ...a, obstacles: v }))} /></Grid>
-                  <Grid item xs={12}><OField label="Thay đổi gì ngay hôm nay?" value={app.changeToday} onChange={v => setApp(a => ({ ...a, changeToday: v }))} /></Grid>
-                </Grid>
+                <Box display="flex" flexDirection="column" gap={1.5} mb={1}>
+                  <OField label="Hành động cụ thể mình sẽ làm là gì?" value={app.specificAction} onChange={v => setApp(a => ({ ...a, specificAction: v }))} />
+                  <OField label="Khi nào thực hiện?" value={app.when} onChange={v => setApp(a => ({ ...a, when: v }))} />
+                  <OField label="Trở ngại có thể gặp?" value={app.obstacles} onChange={v => setApp(a => ({ ...a, obstacles: v }))} />
+                  <OField label="Thay đổi gì ngay hôm nay?" value={app.changeToday} onChange={v => setApp(a => ({ ...a, changeToday: v }))} />
+                </Box>
               </Box>
 
               <Divider />
