@@ -18,6 +18,18 @@ public class BibleStudySessionController : ControllerBase
 
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+    // GET /api/bible-study-sessions/history
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory()
+    {
+        var rows = await _db.BibleStudySessions
+            .Where(x => x.UserId == UserId)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return Ok(rows.Select(ToDto));
+    }
+
     // GET /api/bible-study-sessions?book=ph&chapter=2
     [HttpGet]
     public async Task<IActionResult> GetByChapter([FromQuery] string book, [FromQuery] int chapter)

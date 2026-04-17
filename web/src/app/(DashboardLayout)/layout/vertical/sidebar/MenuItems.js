@@ -11,6 +11,7 @@ import {
   IconBook,
   IconBook2,
   IconBible,
+  IconSearch,
   IconSettings,
   IconUsers,
 } from '@tabler/icons-react';
@@ -80,6 +81,12 @@ const Menuitems = [
     title: 'Đọc Kinh Thánh',
     icon: IconBook,
     href: '/apps/bible',
+  },
+  {
+    id: uniqueId(),
+    title: 'Học Kinh Thánh',
+    icon: IconSearch,
+    href: '/apps/bible-study',
   },
   {
     id: uniqueId(),
