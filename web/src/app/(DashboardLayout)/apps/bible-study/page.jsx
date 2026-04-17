@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -31,6 +32,7 @@ import {
   IconBook,
   IconChevronDown,
   IconChevronUp,
+  IconDownload,
 } from '@tabler/icons-react';
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -211,6 +213,66 @@ export default function BibleStudyPage() {
       setSaving(false);
     }
   }, [sessionId, book, chapter, verseFrom, verseTo, obs, int_, app, isCompleted]);
+
+  const handleExportWord = useCallback(async () => {
+    const passage = `${BOOK_ID_TO_NAME[book] || book} ${chapter}:${verseFrom}–${verseTo}`;
+    const dateStr = new Date().toLocaleDateString('vi-VN');
+
+    const sectionTitle = (text, color) => new Paragraph({
+      text,
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 300, after: 100 },
+    });
+
+    const fieldRow = (label, value) => [
+      new Paragraph({
+        children: [new TextRun({ text: label, bold: true, size: 22 })],
+        spacing: { before: 160, after: 40 },
+      }),
+      new Paragraph({
+        text: value || '(chưa điền)',
+        spacing: { after: 80 },
+      }),
+    ];
+
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({ text: 'HỌC KINH THÁNH QUY NẠP', heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+          new Paragraph({ text: `Đoạn: ${passage}  |  Ngày: ${dateStr}`, alignment: AlignmentType.CENTER, spacing: { after: 400 } }),
+
+          new Paragraph({ text: 'O — QUAN SÁT', heading: HeadingLevel.HEADING_2 }),
+          ...fieldRow('Ai? (Nhân vật chính/phụ)', obs.characters),
+          ...fieldRow('Hành động gì? Điều gì xảy ra?', obs.actions),
+          ...fieldRow('Khi nào? Ở đâu?', obs.whereWhen),
+          ...fieldRow('Từ lặp đi lặp lại?', obs.repeatedWords),
+          ...fieldRow('Từ nối (vì, nên, nhưng, vậy...)', obs.connectingWords),
+          ...fieldRow('Mệnh lệnh / Lời hứa / Tương phản', obs.commands),
+
+          new Paragraph({ text: 'I — GIẢI NGHĨA', heading: HeadingLevel.HEADING_2 }),
+          ...fieldRow('Ý chính của đoạn này là gì?', int_.mainIdea),
+          ...fieldRow('Về Đức Chúa Trời?', int_.aboutGod),
+          ...fieldRow('Về con người?', int_.aboutHuman),
+          ...fieldRow('Tại sao tác giả viết điều này?', int_.whyImportant),
+          ...fieldRow('Bối cảnh lịch sử / văn hóa?', int_.context),
+
+          new Paragraph({ text: 'A — ÁP DỤNG', heading: HeadingLevel.HEADING_2 }),
+          ...fieldRow('Hành động cụ thể mình sẽ làm là gì?', app.specificAction),
+          ...fieldRow('Khi nào thực hiện?', app.when),
+          ...fieldRow('Trở ngại có thể gặp?', app.obstacles),
+          ...fieldRow('Thay đổi gì ngay hôm nay?', app.changeToday),
+        ],
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `KinhThanh_${passage.replace(/[:\s–]/g, '_')}_${dateStr.replace(/\//g, '-')}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [book, chapter, verseFrom, verseTo, obs, int_, app]);
 
   const handleDelete = async (id) => {
     if (!confirm('Xóa phiên học này?')) return;
@@ -438,7 +500,14 @@ export default function BibleStudyPage() {
               </Box>
 
               <Divider />
-              <Box p={2} display="flex" justifyContent="flex-end">
+              <Box p={2} display="flex" justifyContent="flex-end" gap={1}>
+                <Button
+                  variant="outlined"
+                  startIcon={<IconDownload size={18} />}
+                  onClick={handleExportWord}
+                >
+                  Xuất Word
+                </Button>
                 <Button
                   variant="contained"
                   startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <IconDeviceFloppy size={18} />}
