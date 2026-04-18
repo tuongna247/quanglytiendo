@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -226,7 +226,7 @@ function HTHForm({ data, onChange, selectedText }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function BibleStudyPage() {
-  const { user } = useAuth();
+  useAuth();
   const [view, setView] = useState('study');
   const [studyMethod, setStudyMethod] = useState('oia');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -520,7 +520,7 @@ export default function BibleStudyPage() {
     <>
       {/* ── Full-screen overlay ── */}
       {isFullscreen && (
-        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1300, bgcolor: 'background.default', p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'background.default', p: 2, display: 'flex', flexDirection: 'column' }}>
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
             <Typography variant="h6" fontWeight={700} display="flex" alignItems="center" gap={1}>
               <IconBook size={20} /> Học Kinh Thánh
