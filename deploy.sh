@@ -40,5 +40,16 @@ WEB_PORT=$(grep WEB_PORT .env | cut -d= -f2)
 WEB_PORT=${WEB_PORT:-3010}
 echo "Web chạy tại: http://localhost:${WEB_PORT}"
 echo ""
-echo "Thêm vào nginx của server (xem nginx/app.conf.example)"
+
+# Copy nginx config nếu chưa có
+NGINX_CONF="/nginx/sites-available/tasks.kinhthanhmoingay.com.conf"
+if [ ! -f "$NGINX_CONF" ]; then
+  echo "[Nginx] Copy config..."
+  sudo cp nginx/tasks.kinhthanhmoingay.com.conf "$NGINX_CONF"
+  sudo nginx -t && sudo systemctl reload nginx
+  echo "[Nginx] Done — tasks.kinhthanhmoingay.com.conf đã được cài."
+else
+  echo "[Nginx] Config đã tồn tại tại $NGINX_CONF"
+fi
+
 echo "Logs: docker compose logs -f"
