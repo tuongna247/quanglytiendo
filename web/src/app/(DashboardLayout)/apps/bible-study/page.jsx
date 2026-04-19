@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import Portal from '@mui/material/Portal';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -520,7 +521,8 @@ export default function BibleStudyPage() {
     <>
       {/* ── Full-screen overlay ── */}
       {isFullscreen && (
-        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'background.default', p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Portal>
+        <Box sx={{ position: 'fixed', inset: 0, zIndex: 1300, bgcolor: 'background.paper', overflow: 'hidden', p: 2, display: 'flex', flexDirection: 'column' }}>
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
             <Typography variant="h6" fontWeight={700} display="flex" alignItems="center" gap={1}>
               <IconBook size={20} /> Học Kinh Thánh
@@ -536,6 +538,7 @@ export default function BibleStudyPage() {
             {studyPanel}
           </Box>
         </Box>
+        </Portal>
       )}
 
       {/* ── Normal page ── */}
