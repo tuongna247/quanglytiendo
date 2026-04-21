@@ -56,8 +56,9 @@ export async function fetchBibleVerseText(ref) {
     let truncated = false;
 
     for (let ch = parsed.chFrom; ch <= parsed.chTo; ch++) {
-      const verses = bookChapters[ch - 1];
-      if (!verses) continue;
+      const raw = bookChapters[ch - 1];
+      if (!raw) continue;
+      const verses = raw.filter(v => typeof v === 'string');
       const vStart = ch === parsed.chFrom ? parsed.vFrom : 1;
       const vEnd   = ch === parsed.chTo   ? parsed.vTo   : verses.length;
       if (parsed.chFrom !== parsed.chTo) {

@@ -236,8 +236,11 @@ export default function BibleStudyPage() {
   // passage
   const [book, setBook] = useState('ph');
   const [chapter, setChapter] = useState(1);
-  const [verseFrom, setVerseFrom] = useState(1);
-  const [verseTo, setVerseTo] = useState(5);
+  const [selectedVerseNums, setSelectedVerseNums] = useState(new Set());
+
+  // derive verseFrom/verseTo from selection
+  const verseFrom = selectedVerseNums.size > 0 ? Math.min(...selectedVerseNums) : 1;
+  const verseTo   = selectedVerseNums.size > 0 ? Math.max(...selectedVerseNums) : 1;
   const [fontSize, setFontSize] = useState(16);
   const [fontFamily, setFontFamily] = useState('inherit');
 
@@ -277,9 +280,7 @@ export default function BibleStudyPage() {
   }, [view]);
 
   const chapterCount = CHAPTER_COUNTS[book] || 1;
-  const verses = bibleData?.[book]?.[chapter - 1] || [];
-  const displayVerses = verses.slice(verseFrom - 1, verseTo);
-  const verseCountInChapter = verses.length || 30;
+  const verses = (bibleData?.[book]?.[chapter - 1] || []).filter(v => typeof v === 'string');
 
   const handleBibleMouseUp = () => {
     const sel = window.getSelection()?.toString().trim();
@@ -294,18 +295,26 @@ export default function BibleStudyPage() {
   };
 
   const handleBookChange = (b) => {
-    setBook(b); setChapter(1); setVerseFrom(1);
-    setVerseTo(Math.min(5, CHAPTER_COUNTS[b] || 1));
-    resetForm();
+    setBook(b); setChapter(1); setSelectedVerseNums(new Set()); resetForm();
   };
 
   const handleChapterChange = (c) => {
-    setChapter(c); setVerseFrom(1); setVerseTo(5); resetForm();
+    setChapter(c); setSelectedVerseNums(new Set()); resetForm();
+  };
+
+  const toggleVerse = (vNum) => {
+    setSelectedVerseNums(prev => {
+      const next = new Set(prev);
+      next.has(vNum) ? next.delete(vNum) : next.add(vNum);
+      return next;
+    });
   };
 
   const handleLoadSession = (s) => {
     setBook(s.bookId); setChapter(s.chapter);
-    setVerseFrom(s.verseFrom); setVerseTo(s.verseTo);
+    const nums = new Set();
+    for (let v = s.verseFrom; v <= s.verseTo; v++) nums.add(v);
+    setSelectedVerseNums(nums);
     setSessionId(s.id);
     setObs(safeJson(s.observationJson, defaultObs()));
     setInt(safeJson(s.interpretationJson, defaultInt()));
@@ -419,18 +428,13 @@ export default function BibleStudyPage() {
                   {Array.from({ length: chapterCount }, (_, i) => i + 1).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                 </Select>
               </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel>Từ câu</InputLabel>
-                <Select value={verseFrom} label="Từ câu" onChange={e => { const v = Number(e.target.value); setVerseFrom(v); if (verseTo < v) setVerseTo(v); }}>
-                  {Array.from({ length: verseCountInChapter }, (_, i) => i + 1).map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel>Đến câu</InputLabel>
-                <Select value={verseTo} label="Đến câu" onChange={e => setVerseTo(Number(e.target.value))}>
-                  {Array.from({ length: verseCountInChapter }, (_, i) => i + 1).filter(v => v >= verseFrom).map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-                </Select>
-              </FormControl>
+              {selectedVerseNums.size > 0 && (
+                <Box display="flex" alignItems="center" sx={{ bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.200', borderRadius: 1, px: 1.5, whiteSpace: 'nowrap' }}>
+                  <Typography variant="caption" color="primary.main" fontWeight={700}>
+                    Câu {verseFrom}{verseTo !== verseFrom ? `–${verseTo}` : ''}
+                  </Typography>
+                </Box>
+              )}
             </Box>
             <Box display="flex" alignItems="center" gap={0.5}>
               <Tooltip title="Chữ nhỏ hơn"><span>
@@ -454,21 +458,40 @@ export default function BibleStudyPage() {
           onMouseUp={handleBibleMouseUp}
         >
           <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1}>
-            📖 {BOOK_ID_TO_NAME[book]} {chapter}:{verseFrom}–{verseTo}
+            📖 {BOOK_ID_TO_NAME[book]} {chapter}
+            {selectedVerseNums.size === 0
+              ? <Typography component="span" variant="caption" color="text.disabled" ml={1}>— bấm vào câu để chọn</Typography>
+              : <Typography component="span" variant="caption" color="primary.main" ml={1}>({selectedVerseNums.size} câu đã chọn)</Typography>
+            }
           </Typography>
           {loadingBible ? (
             <Box display="flex" justifyContent="center" p={2}><CircularProgress size={24} /></Box>
-          ) : displayVerses.length === 0 ? (
+          ) : verses.length === 0 ? (
             <Typography color="text.secondary" variant="body2">Không có dữ liệu</Typography>
           ) : (
-            displayVerses.map((text, i) => (
-              <Box key={i} mb={1} display="flex" gap={1}>
-                <Typography variant="body2" color="text.disabled" sx={{ minWidth: 22, fontSize: fontSize * 0.7, pt: '3px', flexShrink: 0 }}>
-                  {verseFrom + i}
-                </Typography>
-                <Typography sx={{ fontSize, lineHeight: 1.8, fontFamily }}>{text}</Typography>
-              </Box>
-            ))
+            verses.map((text, i) => {
+              const vNum = i + 1;
+              const selected = selectedVerseNums.has(vNum);
+              return (
+                <Box
+                  key={i}
+                  onClick={() => toggleVerse(vNum)}
+                  sx={{
+                    mb: 0.5, px: 1, py: 0.4, borderRadius: 1, cursor: 'pointer',
+                    bgcolor: selected ? 'primary.50' : 'transparent',
+                    border: '1px solid',
+                    borderColor: selected ? 'primary.300' : 'transparent',
+                    '&:hover': { bgcolor: selected ? 'primary.100' : 'action.hover' },
+                    transition: 'background 0.1s',
+                  }}
+                >
+                  <Typography sx={{ fontSize, lineHeight: 1.8, fontFamily }}>
+                    <Box component="sup" sx={{ fontWeight: 700, color: selected ? 'primary.main' : 'text.disabled', fontSize: '0.7em', mr: 0.5 }}>{vNum}</Box>
+                    {text}
+                  </Typography>
+                </Box>
+              );
+            })
           )}
         </Box>
       </Card>
