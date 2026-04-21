@@ -507,6 +507,22 @@ function verseHasHardWords(text, vocab) {
   return tokenizeVerse(text).some(tok => tok.word && vocab[tok.word]);
 }
 
+// ── Section header renderer ───────────────────────────────────────────────────
+function SectionHeader({ item }) {
+  return (
+    <Box sx={{ mt: 2, mb: 0.5, px: 1 }}>
+      <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.82em', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        {item.s}
+      </Typography>
+      {item.ctx && (
+        <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic', display: 'block', mt: 0.1 }}>
+          {item.ctx}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 // ── Bible text renderer ──────────────────────────────────────────────────────
 function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, activeColor, onHighlight, onHighlightWithColor, fontFamily, fontSize, highlightedRange, wordWise, wordWiseVocab }) {
   const seenWords = new Set();
@@ -521,25 +537,29 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
     if (ctxMenu && onHighlightWithColor) onHighlightWithColor(ctxMenu.verseKey, color);
     setCtxMenu(null);
   }
+
   if (paragraphMode) {
     return (
       <Box sx={{ fontFamily, fontSize, lineHeight: 2 }}>
-        {chapters.map((verses, chIdx) => {
+        {chapters.map((items, chIdx) => {
           const chNum = chapterOffset + chIdx;
+          const isInRange = highlightedRange && chNum >= highlightedRange.chFrom && chNum <= highlightedRange.chTo;
+          let vNum = 0;
           return (
             <Box key={chIdx} sx={{ mb: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'primary.main', mb: 1, fontFamily }}>
                 Chương {chNum}
               </Typography>
-              <Typography component="p" sx={{ lineHeight: 2, fontFamily, fontSize }}>
-                {verses.map((verse, vIdx) => {
-                  const key = `${chNum}:${vIdx + 1}`;
+              <Typography component="div" sx={{ lineHeight: 2, fontFamily, fontSize }}>
+                {items.map((item, idx) => {
+                  if (typeof item !== 'string') return <SectionHeader key={idx} item={item} />;
+                  const vn = ++vNum;
+                  const key = `${chNum}:${vn}`;
                   const bg = highlights[key];
-                  const isInRange = highlightedRange && chNum >= highlightedRange.chFrom && chNum <= highlightedRange.chTo;
-                  const hasHard = wordWise && verseHasHardWords(verse, wordWiseVocab);
+                  const hasHard = wordWise && verseHasHardWords(item, wordWiseVocab);
                   return (
                     <Box
-                      key={vIdx}
+                      key={idx}
                       component="span"
                       onClick={() => onHighlight(key)}
                       onContextMenu={e => handleContextMenu(e, key)}
@@ -552,10 +572,10 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                         lineHeight: hasHard ? 2.8 : 2,
                       }}
                     >
-                      <Box component="sup" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '0.7em', mr: 0.3 }}>{vIdx + 1}</Box>
+                      <Box component="sup" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '0.7em', mr: 0.3 }}>{vn}</Box>
                       {wordWise && wordWiseVocab
-                        ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} seenWords={seenWords} />
-                        : verse}{' '}
+                        ? <WordWiseVerse text={item} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} seenWords={seenWords} />
+                        : item}{' '}
                     </Box>
                   );
                 })}
@@ -570,22 +590,25 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
   // Verse-by-verse mode
   return (
     <Box sx={{ fontFamily, fontSize }}>
-      {chapters.map((verses, chIdx) => {
+      {chapters.map((items, chIdx) => {
         const chNum = chapterOffset + chIdx;
         const isInRange = highlightedRange && chNum >= highlightedRange.chFrom && chNum <= highlightedRange.chTo;
+        let vNum = 0;
         return (
           <Box key={chIdx} sx={{ mb: 3 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'primary.main', mb: 1, fontFamily }}>
               Chương {chNum}
             </Typography>
-            {verses.map((verse, vIdx) => {
-              const key = `${chNum}:${vIdx + 1}`;
+            {items.map((item, idx) => {
+              if (typeof item !== 'string') return <SectionHeader key={idx} item={item} />;
+              const vn = ++vNum;
+              const key = `${chNum}:${vn}`;
               const bg = highlights[key];
-              const hasHard = wordWise && verseHasHardWords(verse, wordWiseVocab);
+              const hasHard = wordWise && verseHasHardWords(item, wordWiseVocab);
               const lh = hasHard ? 3.5 : 1.9;
               return (
                 <Box
-                  key={vIdx}
+                  key={idx}
                   onClick={() => onHighlight(key)}
                   onContextMenu={e => handleContextMenu(e, key)}
                   sx={{
@@ -596,12 +619,12 @@ function BibleTextContent({ chapters, chapterOffset, paragraphMode, highlights, 
                   }}
                 >
                   <Typography variant="caption" sx={{ minWidth: 22, fontWeight: 700, color: 'primary.main', mt: 0.3, lineHeight: lh, fontFamily }}>
-                    {vIdx + 1}
+                    {vn}
                   </Typography>
                   <Typography sx={{ lineHeight: lh, flex: 1, fontFamily, fontSize }}>
                     {wordWise && wordWiseVocab
-                      ? <WordWiseVerse text={verse} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} seenWords={seenWords} />
-                      : verse}
+                      ? <WordWiseVerse text={item} vocab={wordWiseVocab} fontFamily={fontFamily} fontSize={fontSize} seenWords={seenWords} />
+                      : item}
                   </Typography>
                 </Box>
               );
@@ -855,7 +878,7 @@ function StudyPanel({ open, studySessions, activeSession, setActiveSession, sele
   if (!open) return null;
 
   const chapterVerses = (bible && bible[selectedBook] && bible[selectedBook][chapterFrom - 1]) || [];
-  const totalVerses = chapterVerses.length;
+  const totalVerses = chapterVerses.filter(v => typeof v === 'string').length;
 
   async function persistSession(session) {
     const payload = {

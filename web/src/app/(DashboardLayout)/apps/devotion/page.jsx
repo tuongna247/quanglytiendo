@@ -361,7 +361,7 @@ function InlineBibleText({ passage, dateStr, completed, toggle }) {
     const totalCh = bibleData[parsed.bookId].length;
     const chTo = Math.min(parsed.chTo, totalCh);
     for (let ch = parsed.chFrom; ch <= chTo; ch++) {
-      chapters.push({ num: ch, verses: bibleData[parsed.bookId][ch - 1] || [] });
+      chapters.push({ num: ch, verses: (bibleData[parsed.bookId][ch - 1] || []).filter(v => typeof v === 'string') });
     }
   }
 
@@ -481,7 +481,7 @@ function BibleInlineReader({ refs }) {
                 {p.bookName}
               </Typography>
               {Array.from({ length: p.chTo - p.chFrom + 1 }, (_, i) => p.chFrom + i).map(ch => {
-                const verses = bible[p.bookId]?.[ch - 1] ?? [];
+                const verses = (bible[p.bookId]?.[ch - 1] ?? []).filter(v => typeof v === 'string');
                 return (
                   <Box key={ch} sx={{ mb: 2 }}>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.5 }}>

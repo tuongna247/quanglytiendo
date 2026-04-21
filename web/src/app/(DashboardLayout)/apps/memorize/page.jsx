@@ -77,7 +77,7 @@ function getVersesFromBible(bibleData, parsed) {
   if (!bibleData || !bibleData[parsed.bookId]) return [];
   const verses = [];
   for (let ch = parsed.chapter; ch <= parsed.chapterTo; ch++) {
-    const chVerses = bibleData[parsed.bookId][ch - 1] || [];
+    const chVerses = (bibleData[parsed.bookId][ch - 1] || []).filter(v => typeof v === 'string');
     const vFrom = (ch === parsed.chapter && parsed.verseFrom) ? parsed.verseFrom : 1;
     const vTo = (ch === parsed.chapterTo && parsed.verseTo) ? parsed.verseTo : chVerses.length;
     for (let v = vFrom; v <= vTo; v++) {

@@ -14,7 +14,26 @@
       "Bash(node -e ':*)",
       "Bash(node -e \"try { const d = JSON.parse\\(require\\('fs'\\).readFileSync\\('bible.json','utf8'\\)\\); console.log\\('OK, books:', d.length\\); d.forEach\\(b => console.log\\(b.id, 'chapters:', b.chapters.length\\)\\); } catch\\(e\\) { console.error\\('ERROR:', e.message.slice\\(0,200\\)\\); }\")",
       "Bash(grep -l \"DailyNote\\\\|BibleVerseHighlight\\\\|BibleReadingLog\\\\|MemorizePassage\\\\|BibleReadingPlan\" /d/Projects/GitLap/App_QuanLy_TienDo/api/QuanLyTienDo.API/Migrations/*.cs)",
-      "Bash(dotnet restore *)"
+      "Bash(dotnet restore *)",
+      "WebFetch(domain:kinhthanh.httlvn.org)",
+      "Bash(node tools/bible-fix-truncated.mjs)",
+      "Bash(node -e \"const b=JSON.parse\\(require\\('fs'\\).readFileSync\\('d:/Projects/GitLap/App_QuanLy_TienDo/web/public/bible.json','utf-8'\\)\\); b.forEach\\(x=>process.stdout.write\\(x.id+' '\\)\\); console.log\\(\\)\")",
+      "Bash(node tools/bible-compare.mjs diff)",
+      "Bash(timeout 60 node tools/bible-spellcheck.mjs ru)",
+      "Bash(node -e \"const b=JSON.parse\\(require\\('fs'\\).readFileSync\\('d:/Projects/GitLap/App_QuanLy_TienDo/web/public/bible.json','utf-8'\\)\\); console.log\\(b.slice\\(5,10\\).map\\(x=>x.id\\)\\)\")",
+      "Bash(node tools/bible-spellcheck.mjs rt)",
+      "Bash(node tools/bible-convert-usx.mjs bible_vietnamese/release/USX_1 web/public/bible_VIE1925.json)",
+      "Bash(node -e ' *)",
+      "Bash(node tools/bible-scrape-httlvn.mjs VI1934)",
+      "Bash(node tools/bible-scrape-httlvn.mjs RVV11)",
+      "Bash(mkdir -p backup/bible)",
+      "Bash(cp web/public/bible.json backup/bible/bible_USX_converted.json)",
+      "Bash(cp web/public/bible_NIV.json backup/bible/bible_NIV.json)",
+      "Bash(cp web/public/bible_VI1934_old.json backup/bible/bible_VI1934_original.json)",
+      "Bash(node tools/bible-compare-versions.mjs backup/bible/bible_VI1934_original.json web/public/bible_VI1934.json --limit 20)",
+      "Bash(node tools/bible-scrape-httlvn.mjs NIV)",
+      "Bash(node tools/bible-scrape-httlvn.mjs NVB)",
+      "Bash(grep -n '\">\"\\\\\\\\|IconChevron\\\\\\\\|>.*<\\\\\\\\|&gt;' \"D:/Projects/GitLap/App_QuanLy_TienDo/web/src/app/\\(DashboardLayout\\)/apps/bible-study/page.jsx\")"
     ]
   }
 }
