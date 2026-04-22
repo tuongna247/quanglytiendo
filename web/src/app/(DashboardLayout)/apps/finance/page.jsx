@@ -1,5 +1,8 @@
 'use client';
+import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
+import { useTheme } from '@mui/material/styles';
+const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -40,8 +43,23 @@ import {
 import FriendSelector from '@/app/components/apps/friends/FriendSelector';
 
 const PERIOD_TABS = ['Ngày', 'Tuần', 'Tháng', 'Năm'];
-const INCOME_CATS = ['Lương', 'Thưởng', 'Đầu tư', 'Quà tặng', 'Khác'];
+const DEFAULT_INCOME_CATS = ['Lương', 'Thưởng', 'Đầu tư', 'Quà tặng', 'Khác'];
 const EXPENSE_CATS = ['Ăn uống', 'Di chuyển', 'Mua sắm', 'Hóa đơn', 'Y tế', 'Giải trí', 'Tiền nhà', 'Điện nước', 'Internet', 'Học phí', 'Bảo hiểm', 'Khác'];
+
+function useIncomeCats() {
+  const [custom, setCustom] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('finance_income_cats') || '[]'); } catch { return []; }
+  });
+  const all = [...DEFAULT_INCOME_CATS, ...custom.filter(c => !DEFAULT_INCOME_CATS.includes(c))];
+  function addCat(name) {
+    const trimmed = name.trim();
+    if (!trimmed || all.includes(trimmed)) return;
+    const next = [...custom, trimmed];
+    setCustom(next);
+    localStorage.setItem('finance_income_cats', JSON.stringify(next));
+  }
+  return { incomeCats: all, addIncomeCat: addCat };
+}
 
 function formatVND(n) {
   return (n || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
@@ -106,6 +124,8 @@ function FixedExpensesTab({ setError, setSuccess }) {
   const [form, setForm] = useState(emptyFixedForm);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(null); // id being applied
+  const { incomeCats, addIncomeCat } = useIncomeCats();
+  const [newCatInput, setNewCatInput] = useState('');
 
   async function fetchItems() {
     setLoading(true);
@@ -318,8 +338,32 @@ function FixedExpensesTab({ setError, setSuccess }) {
             />
             <FormControl fullWidth>
               <InputLabel>Danh mục *</InputLabel>
-              <Select value={form.category} label="Danh mục *" onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                {(form.type === 'income' ? INCOME_CATS : EXPENSE_CATS).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              <Select
+                value={form.category}
+                label="Danh mục *"
+                onChange={e => {
+                  if (e.target.value === '__add__') return;
+                  setForm(f => ({ ...f, category: e.target.value }));
+                }}
+              >
+                {(form.type === 'income' ? incomeCats : EXPENSE_CATS).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                {form.type === 'income' && (
+                  <MenuItem value="__add__" disableRipple sx={{ flexDirection: 'column', alignItems: 'stretch', p: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1 }} onClick={e => e.stopPropagation()}>
+                      <TextField
+                        size="small"
+                        placeholder="Tên danh mục mới..."
+                        value={newCatInput}
+                        onChange={e => setNewCatInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { addIncomeCat(newCatInput); setForm(f => ({ ...f, category: newCatInput.trim() })); setNewCatInput(''); } }}
+                        sx={{ flex: 1 }}
+                      />
+                      <Button size="small" variant="contained" onClick={() => { addIncomeCat(newCatInput); setForm(f => ({ ...f, category: newCatInput.trim() })); setNewCatInput(''); }}>
+                        Thêm
+                      </Button>
+                    </Box>
+                  </MenuItem>
+                )}
               </Select>
             </FormControl>
             <FormControl fullWidth>
@@ -347,10 +391,175 @@ function FixedExpensesTab({ setError, setSuccess }) {
   );
 }
 
+// ── Cash Flow Timeline Tab ────────────────────────────────────────────────────
+function CashFlowTab() {
+  const now = new Date();
+  const theme = useTheme();
+  const [year, setYear] = useState(now.getFullYear());
+  const [monthData, setMonthData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  async function fetchData() {
+    setLoading(true);
+    try {
+      const txs = await apiClient.get('/api/transactions', {
+        from: `${year}-01-01`,
+        to: `${year}-12-31`,
+      });
+      const byMonth = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, income: 0, expense: 0 }));
+      (txs || []).forEach(t => {
+        const m = new Date(t.date).getMonth();
+        if (t.type === 'income') byMonth[m].income += t.amount || 0;
+        else byMonth[m].expense += t.amount || 0;
+      });
+      let running = 0;
+      setMonthData(byMonth.map(r => {
+        const balance = r.income - r.expense;
+        running += balance;
+        return { ...r, balance, running };
+      }));
+    } catch { setMonthData([]); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { fetchData(); }, [year]);
+
+  const totalIncome = monthData.reduce((s, d) => s + d.income, 0);
+  const totalExpense = monthData.reduce((s, d) => s + d.expense, 0);
+  const totalBalance = totalIncome - totalExpense;
+  const currentMonth = now.getMonth() + 1;
+
+  const chartOptions = {
+    chart: { type: 'bar', toolbar: { show: false }, fontFamily: "'Plus Jakarta Sans', sans-serif", foreColor: '#adb0bb' },
+    colors: [theme.palette.success.main, theme.palette.error.main, theme.palette.primary.main],
+    plotOptions: { bar: { columnWidth: '55%', borderRadius: 3 } },
+    dataLabels: { enabled: false },
+    stroke: { width: [0, 0, 2.5], curve: 'smooth' },
+    xaxis: { categories: ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'] },
+    yaxis: {
+      labels: {
+        formatter: v => {
+          if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(0)}tr`;
+          if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k`;
+          return String(v);
+        },
+      },
+    },
+    tooltip: { y: { formatter: v => formatVND(v) }, theme: 'dark' },
+    legend: { position: 'top' },
+    grid: { borderColor: 'rgba(0,0,0,0.07)' },
+  };
+
+  const chartSeries = [
+    { name: 'Thu nhập', type: 'bar', data: monthData.map(d => d.income) },
+    { name: 'Chi tiêu', type: 'bar', data: monthData.map(d => d.expense) },
+    { name: 'Số dư lũy kế', type: 'line', data: monthData.map(d => d.running) },
+  ];
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>Dòng tiền theo tháng</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton size="small" onClick={() => setYear(y => y - 1)}><IconChevronLeft size={20} /></IconButton>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, minWidth: 50, textAlign: 'center' }}>{year}</Typography>
+          <IconButton size="small" onClick={() => setYear(y => y + 1)} disabled={year >= now.getFullYear()}><IconChevronRight size={20} /></IconButton>
+        </Box>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
+            <CardContent sx={{ pb: '12px !important' }}>
+              <Typography variant="subtitle2" color="textSecondary">Tổng thu {year}</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{formatVND(totalIncome)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'error.main' }}>
+            <CardContent sx={{ pb: '12px !important' }}>
+              <Typography variant="subtitle2" color="textSecondary">Tổng chi {year}</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>{formatVND(totalExpense)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: totalBalance >= 0 ? 'primary.main' : 'warning.main' }}>
+            <CardContent sx={{ pb: '12px !important' }}>
+              <Typography variant="subtitle2" color="textSecondary">Số dư năm {year}</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: totalBalance >= 0 ? 'primary.main' : 'warning.main' }}>{formatVND(totalBalance)}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Card sx={{ borderRadius: 2, mb: 3 }}>
+        <CardContent>
+          {loading ? <LinearProgress /> : (
+            <Chart options={chartOptions} series={chartSeries} type="bar" height={300} width="100%" />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ p: 0 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Tháng</TableCell>
+                <TableCell align="right">Thu nhập</TableCell>
+                <TableCell align="right">Chi tiêu</TableCell>
+                <TableCell align="right">Số dư tháng</TableCell>
+                <TableCell align="right">Lũy kế</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {monthData.map(d => {
+                const isEmpty = d.income === 0 && d.expense === 0;
+                const isCurrent = d.month === currentMonth && year === now.getFullYear();
+                return (
+                  <TableRow key={d.month} hover sx={{ opacity: isEmpty ? 0.35 : 1, bgcolor: isCurrent ? 'action.selected' : 'inherit' }}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: isCurrent ? 700 : 400 }}>
+                        Tháng {d.month}{isCurrent ? ' ▸' : ''}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ color: d.income > 0 ? 'success.main' : 'text.disabled' }}>
+                        {d.income > 0 ? formatVND(d.income) : '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ color: d.expense > 0 ? 'error.main' : 'text.disabled' }}>
+                        {d.expense > 0 ? formatVND(d.expense) : '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: isEmpty ? 'text.disabled' : d.balance >= 0 ? 'success.main' : 'error.main' }}>
+                        {isEmpty ? '—' : (d.balance >= 0 ? '+' : '') + formatVND(d.balance)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: isEmpty ? 'text.disabled' : d.running >= 0 ? 'primary.main' : 'warning.main' }}>
+                        {isEmpty ? '—' : formatVND(d.running)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
+
 // ── Main Finance Page ─────────────────────────────────────────────────────────
 export default function FinancePage() {
   const now = new Date();
-  const [periodTab, setPeriodTab] = useState(2); // 0=Ngày,1=Tuần,2=Tháng,3=Năm,4=Cố định,5=Bạn bè
+  const [periodTab, setPeriodTab] = useState(2); // 0=Ngày,1=Tuần,2=Tháng,3=Năm,4=Cố định,5=Dòng tiền,6=Bạn bè
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(now.getFullYear(), now.getMonth() + 1));
   const [transactions, setTransactions] = useState([]);
   const [fixedItems, setFixedItems] = useState([]); // for combined monthly view
@@ -369,6 +578,8 @@ export default function FinancePage() {
   const [friendShared, setFriendShared] = useState(true);
   const [loadingFriend, setLoadingFriend] = useState(false);
   const [friendMonth, setFriendMonth] = useState(() => monthKey(now.getFullYear(), now.getMonth() + 1));
+  const { incomeCats, addIncomeCat } = useIncomeCats();
+  const [newCatInput, setNewCatInput] = useState('');
 
   const isFixedTab = periodTab === 4;
   const isMonthTab = periodTab === 2;
@@ -491,7 +702,7 @@ export default function FinancePage() {
   return (
     <PageContainer title="Tài chính" description="Quản lý thu chi">
       {/* Summary cards — only show on period tabs */}
-      {!isFixedTab && periodTab !== 5 && (
+      {!isFixedTab && periodTab !== 6 && periodTab !== 5 && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{ borderRadius: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
@@ -528,12 +739,13 @@ export default function FinancePage() {
 
       {/* Tabs */}
       <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 0 }}>
-        <Tabs value={periodTab} onChange={(_, v) => { setPeriodTab(v); if (v !== 5) setFriendUserId(null); }} sx={{ flex: 1 }}>
+        <Tabs value={periodTab} onChange={(_, v) => { setPeriodTab(v); if (v !== 6) setFriendUserId(null); }} sx={{ flex: 1 }}>
           {PERIOD_TABS.map((t, i) => <Tab key={i} label={t} />)}
           <Tab label="Cố định" />
+          <Tab label="Dòng tiền" />
           <Tab label="Bạn bè" />
         </Tabs>
-        {!isFixedTab && periodTab !== 5 && (
+        {!isFixedTab && periodTab !== 6 && periodTab !== 5 && (
           <>
             <Tooltip title="Xuất / Nhập dữ liệu">
               <IconButton onClick={() => { setExportOpen(true); setImportPreview(null); setImportDone(false); }} sx={{ mr: 0.5 }}>
@@ -562,8 +774,11 @@ export default function FinancePage() {
         </Box>
       )}
 
+      {/* Cash flow timeline tab */}
+      {periodTab === 5 && <CashFlowTab />}
+
       {/* Friend finance summary tab */}
-      {periodTab === 5 && (
+      {periodTab === 6 && (
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
             <FriendSelector
@@ -651,7 +866,7 @@ export default function FinancePage() {
       {/* Fixed expenses tab */}
       {periodTab === 4 ? (
         <FixedExpensesTab setError={setError} setSuccess={setSuccess} />
-      ) : periodTab !== 5 ? (
+      ) : periodTab !== 6 && periodTab !== 5 ? (
         /* Transaction list */
         <Card sx={{ borderRadius: 2 }}>
           <CardContent sx={{ p: 0 }}>
@@ -740,8 +955,32 @@ export default function FinancePage() {
             />
             <FormControl fullWidth>
               <InputLabel>Danh mục *</InputLabel>
-              <Select value={form.category} label="Danh mục *" onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                {(form.type === 'income' ? INCOME_CATS : EXPENSE_CATS).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+              <Select
+                value={form.category}
+                label="Danh mục *"
+                onChange={e => {
+                  if (e.target.value === '__add__') return;
+                  setForm(f => ({ ...f, category: e.target.value }));
+                }}
+              >
+                {(form.type === 'income' ? incomeCats : EXPENSE_CATS).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                {form.type === 'income' && (
+                  <MenuItem value="__add__" disableRipple sx={{ flexDirection: 'column', alignItems: 'stretch', p: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1 }} onClick={e => e.stopPropagation()}>
+                      <TextField
+                        size="small"
+                        placeholder="Tên danh mục mới..."
+                        value={newCatInput}
+                        onChange={e => setNewCatInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { addIncomeCat(newCatInput); setForm(f => ({ ...f, category: newCatInput.trim() })); setNewCatInput(''); } }}
+                        sx={{ flex: 1 }}
+                      />
+                      <Button size="small" variant="contained" onClick={() => { addIncomeCat(newCatInput); setForm(f => ({ ...f, category: newCatInput.trim() })); setNewCatInput(''); }}>
+                        Thêm
+                      </Button>
+                    </Box>
+                  </MenuItem>
+                )}
               </Select>
             </FormControl>
             <TextField label="Mô tả" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} fullWidth />
