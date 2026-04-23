@@ -18,7 +18,7 @@ import MenuItem from '@mui/material/MenuItem';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { IconChevronLeft, IconChevronRight, IconEdit, IconTrash, IconPlus, IconGripVertical, IconDownload, IconUpload } from '@tabler/icons-react';
+import { IconChevronLeft, IconChevronRight, IconEdit, IconTrash, IconPlus, IconGripVertical, IconDownload, IconUpload, IconArrowRight } from '@tabler/icons-react';
 import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -67,6 +67,10 @@ export default function PlannerPage() {
   const [importPreview, setImportPreview] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importDone, setImportDone] = useState(false);
+  const [sendToTasksOpen, setSendToTasksOpen] = useState(false);
+  const [sendSelectedIds, setSendSelectedIds] = useState(new Set());
+  const [sending, setSending] = useState(false);
+  const [sendDone, setSendDone] = useState(false);
   const [showDoneFilter, setShowDoneFilter] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [prevDayItems, setPrevDayItems] = useState([]);
@@ -130,6 +134,45 @@ export default function PlannerPage() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  }
+
+  // planner has 6 priority levels, tasks has 4 — map down
+  const PRIORITY_MAP = { critical: 'urgent', high: 'high', 'medium-high': 'high', medium: 'medium', low: 'low', trivial: 'low' };
+
+  function openSendToTasks() {
+    // default: select all undone items
+    setSendSelectedIds(new Set(items.filter(i => !i.done).map(i => i.id)));
+    setSendDone(false);
+    setSendToTasksOpen(true);
+  }
+
+  function toggleSendId(id) {
+    setSendSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSendToTasks() {
+    if (sendSelectedIds.size === 0) return;
+    setSending(true);
+    const toSend = items.filter(i => sendSelectedIds.has(i.id));
+    try {
+      await Promise.all(toSend.map(item =>
+        apiClient.post('/api/tasks', {
+          title: item.title,
+          description: '',
+          priority: PRIORITY_MAP[item.priority] || 'medium',
+          status: 'todo',
+          dueDate: null,
+          category: `Kế hoạch ${toDateStr(selectedDate)}`,
+          steps: JSON.stringify([]),
+        })
+      ));
+      setSendDone(true);
+    } catch {}
+    finally { setSending(false); }
   }
 
   async function handleToggle(item) {
@@ -272,6 +315,19 @@ export default function PlannerPage() {
         >
           {showDoneFilter ? 'Đang lọc' : 'Ẩn đã xong'}
         </Button>
+        {viewMode === 'mine' && items.length > 0 && (
+          <Tooltip title="Chuyển kế hoạch sang Tasks">
+            <Button
+              variant="outlined"
+              size="small"
+              color="secondary"
+              startIcon={<IconArrowRight size={15} />}
+              onClick={openSendToTasks}
+            >
+              Gửi → Tasks
+            </Button>
+          </Tooltip>
+        )}
         <Button
           variant={viewMode === 'friend' ? 'contained' : 'outlined'}
           size="small"
@@ -427,6 +483,60 @@ export default function PlannerPage() {
       </>)}
 
       {/* Export / Import dialog */}
+      {/* Send to Tasks dialog */}
+      <Dialog open={sendToTasksOpen} onClose={() => setSendToTasksOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Gửi kế hoạch sang Tasks</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          {sendDone ? (
+            <Alert severity="success">Đã gửi {sendSelectedIds.size} task thành công!</Alert>
+          ) : (
+            <>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 1.5 }}>
+                Chọn kế hoạch muốn chuyển sang danh sách Tasks:
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Button size="small" onClick={() => setSendSelectedIds(new Set(items.map(i => i.id)))}>Chọn tất cả</Button>
+                <Button size="small" onClick={() => setSendSelectedIds(new Set())}>Bỏ chọn tất cả</Button>
+              </Box>
+              <Divider sx={{ mb: 1 }} />
+              {items.map(item => {
+                const priority = PRIORITIES.find(p => p.value === item.priority);
+                return (
+                  <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={sendSelectedIds.has(item.id)}
+                      onChange={() => toggleSendId(item.id)}
+                    />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'text.disabled' : 'text.primary' }}>
+                        {item.title}
+                      </Typography>
+                      {item.done && <Typography variant="caption" color="text.disabled">Đã xong</Typography>}
+                    </Box>
+                    {priority && <Chip label={priority.label} color={priority.color} size="small" />}
+                  </Box>
+                );
+              })}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSendToTasksOpen(false)}>{sendDone ? 'Đóng' : 'Hủy'}</Button>
+          {!sendDone && (
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<IconArrowRight size={15} />}
+              onClick={handleSendToTasks}
+              disabled={sending || sendSelectedIds.size === 0}
+            >
+              {sending ? 'Đang gửi...' : `Gửi (${sendSelectedIds.size})`}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Copy from previous day dialog */}
       <Dialog open={copyDialogOpen} onClose={() => setCopyDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Dùng lại task từ {prevDateLabel}?</DialogTitle>
