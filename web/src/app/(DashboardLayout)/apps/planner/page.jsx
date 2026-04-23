@@ -23,6 +23,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 
+import Divider from '@mui/material/Divider';
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
 import {
@@ -32,9 +33,12 @@ import {
 import FriendSelector from '@/app/components/apps/friends/FriendSelector';
 
 const PRIORITIES = [
+  { value: 'critical', label: 'Khẩn cấp', color: 'error' },
+  { value: 'high', label: 'Cao', color: 'warning' },
+  { value: 'medium-high', label: 'Khá cao', color: 'info' },
+  { value: 'medium', label: 'Trung bình', color: 'default' },
   { value: 'low', label: 'Thấp', color: 'success' },
-  { value: 'medium', label: 'Trung bình', color: 'warning' },
-  { value: 'high', label: 'Cao', color: 'error' },
+  { value: 'trivial', label: 'Không cần gấp', color: 'default' },
 ];
 
 const VI_WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
@@ -63,6 +67,12 @@ export default function PlannerPage() {
   const [importPreview, setImportPreview] = useState(null);
   const [importProgress, setImportProgress] = useState(0);
   const [importDone, setImportDone] = useState(false);
+  const [showDoneFilter, setShowDoneFilter] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [prevDayItems, setPrevDayItems] = useState([]);
+  const [prevDateLabel, setPrevDateLabel] = useState('');
+  const [selectedCopyIds, setSelectedCopyIds] = useState(new Set());
+  const [copying, setCopying] = useState(false);
   const [viewMode, setViewMode] = useState('mine'); // 'mine' | 'friend'
   const [friendUserId, setFriendUserId] = useState(null);
   const [friendItems, setFriendItems] = useState([]);
@@ -81,7 +91,46 @@ export default function PlannerPage() {
   useEffect(() => { fetchItems(); }, [selectedDate]);
 
   function prevDay() { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d); }
-  function nextDay() { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d); }
+  function nextDay() {
+    const currentItems = items;
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    if (currentItems.length > 0) {
+      setPrevDayItems(currentItems);
+      setPrevDateLabel(formatViDate(selectedDate));
+      setSelectedCopyIds(new Set(currentItems.map(i => i.id)));
+      setCopyDialogOpen(true);
+    }
+    setSelectedDate(d);
+  }
+
+  async function handleCopyConfirm() {
+    if (selectedCopyIds.size === 0) { setCopyDialogOpen(false); return; }
+    setCopying(true);
+    const dateStr = toDateStr(selectedDate);
+    try {
+      const toCopy = prevDayItems.filter(i => selectedCopyIds.has(i.id));
+      await Promise.all(toCopy.map(item =>
+        apiClient.post('/api/planner', {
+          title: item.title,
+          priority: item.priority || 'medium',
+          estimatedMinutes: item.estimatedMinutes || null,
+          date: dateStr,
+          done: false,
+        })
+      ));
+      await fetchItems();
+    } catch {}
+    finally { setCopying(false); setCopyDialogOpen(false); }
+  }
+
+  function toggleCopyId(id) {
+    setSelectedCopyIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   async function handleToggle(item) {
     try {
@@ -216,6 +265,14 @@ export default function PlannerPage() {
         <IconButton onClick={nextDay}><IconChevronRight /></IconButton>
         <Button variant="outlined" size="small" onClick={() => setSelectedDate(new Date())}>Hôm nay</Button>
         <Button
+          variant={showDoneFilter ? 'contained' : 'outlined'}
+          size="small"
+          color={showDoneFilter ? 'primary' : 'inherit'}
+          onClick={() => setShowDoneFilter(v => !v)}
+        >
+          {showDoneFilter ? 'Đang lọc' : 'Ẩn đã xong'}
+        </Button>
+        <Button
           variant={viewMode === 'friend' ? 'contained' : 'outlined'}
           size="small"
           onClick={() => setViewMode(v => v === 'mine' ? 'friend' : 'mine')}
@@ -282,12 +339,20 @@ export default function PlannerPage() {
             <Typography align="center" color="textSecondary">Đang tải...</Typography>
           ) : items.length === 0 ? (
             <Typography align="center" color="textSecondary">Chưa có kế hoạch nào cho ngày này</Typography>
-          ) : (
+          ) : (() => {
+            const displayItems = showDoneFilter ? items.filter(i => !i.done) : items;
+            const hiddenCount = items.length - displayItems.length;
+            return (<>
+            {hiddenCount > 0 && (
+              <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1, textAlign: 'right' }}>
+                Đã ẩn {hiddenCount} task hoàn thành
+              </Typography>
+            )}
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="planner">
                 {(provided) => (
                   <Box ref={provided.innerRef} {...provided.droppableProps}>
-                    {items.map((item, idx) => {
+                    {displayItems.map((item, idx) => {
                       const priority = PRIORITIES.find(p => p.value === item.priority);
                       return (
                         <Draggable key={item.id} draggableId={String(item.id)} index={idx}>
@@ -335,7 +400,8 @@ export default function PlannerPage() {
                 )}
               </Droppable>
             </DragDropContext>
-          )}
+            </>);
+          })()}
         </CardContent>
       </Card>
 
@@ -361,6 +427,49 @@ export default function PlannerPage() {
       </>)}
 
       {/* Export / Import dialog */}
+      {/* Copy from previous day dialog */}
+      <Dialog open={copyDialogOpen} onClose={() => setCopyDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Dùng lại task từ {prevDateLabel}?</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 1.5 }}>
+            Chọn task muốn copy sang ngày mới:
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Button size="small" onClick={() => setSelectedCopyIds(new Set(prevDayItems.map(i => i.id)))}>Chọn tất cả</Button>
+            <Button size="small" onClick={() => setSelectedCopyIds(new Set())}>Bỏ chọn tất cả</Button>
+          </Box>
+          <Divider sx={{ mb: 1 }} />
+          {prevDayItems.map(item => {
+            const priority = PRIORITIES.find(p => p.value === item.priority);
+            return (
+              <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+                <Checkbox
+                  size="small"
+                  checked={selectedCopyIds.has(item.id)}
+                  onChange={() => toggleCopyId(item.id)}
+                />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ textDecoration: item.done ? 'line-through' : 'none', color: item.done ? 'text.disabled' : 'text.primary' }}>
+                    {item.title}
+                  </Typography>
+                </Box>
+                {priority && <Chip label={priority.label} color={priority.color} size="small" />}
+              </Box>
+            );
+          })}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCopyDialogOpen(false)}>Bỏ qua</Button>
+          <Button
+            variant="contained"
+            onClick={handleCopyConfirm}
+            disabled={copying || selectedCopyIds.size === 0}
+          >
+            {copying ? 'Đang copy...' : `Dùng lại (${selectedCopyIds.size})`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Xuất / Nhập kế hoạch</DialogTitle>
         <DialogContent>

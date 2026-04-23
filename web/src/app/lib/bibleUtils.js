@@ -1,20 +1,23 @@
-// Mapping từ tên sách Tiếng Việt → book ID trong bible.json
-export const BOOK_NAME_TO_ID = {
+function normBookName(s) {
+  return s.toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+const BOOK_NAME_TO_ID_RAW = {
   // Cựu Ước
-  'Sáng': 'gn', 'Sáng-thế-ký': 'gn',
-  'Xuất Ê-díp-tô': 'ex', 'Xuất': 'ex',
-  'Lê-vi': 'lv',
-  'Dân-số': 'nm',
-  'Phục-truyền': 'dt',
-  'Giô-suê': 'js', 'Gi': 'js',
+  'Sáng': 'gn', 'Sáng-thế-ký': 'gn', 'Sáng Thế Ký': 'gn',
+  'Xuất Ê-díp-tô': 'ex', 'Xuất': 'ex', 'Xuất Ê-díp-tô Ký': 'ex',
+  'Lê-vi': 'lv', 'Lê-vi Ký': 'lv',
+  'Dân-số': 'nm', 'Dân Số Ký': 'nm',
+  'Phục-truyền': 'dt', 'Phục Truyền Luật Lệ Ký': 'dt',
+  'Giô-suê': 'js',
   'Các Quan Xét': 'jud',
   'Ru-tơ': 'rt',
-  '1Sa-mu-ên': '1sm',
-  '2Sa-mu-ên': '2sm',
-  '1Các Vua': '1kgs',
-  '2Các Vua': '2kgs',
-  '1Sử-ký': '1ch',
-  '2Sử-ký': '2ch',
+  '1Sa-mu-ên': '1sm', '1 Sa-mu-ên': '1sm',
+  '2Sa-mu-ên': '2sm', '2 Sa-mu-ên': '2sm',
+  '1Các Vua': '1kgs', '1 Các Vua': '1kgs',
+  '2Các Vua': '2kgs', '2 Các Vua': '2kgs',
+  '1Sử-ký': '1ch', '1 Sử Ký': '1ch',
+  '2Sử-ký': '2ch', '2 Sử Ký': '2ch',
   'Ê-xơ-ra': 'ezr',
   'Nê-hê-mi': 'ne',
   'Ê-xơ-tê': 'et',
@@ -37,6 +40,7 @@ export const BOOK_NAME_TO_ID = {
   'Na-hum': 'na',
   'Ha-ba-cúc': 'hk',
   'Sô-phô-ni': 'zp',
+  'A-ghê': 'hg',
   'Xa-cha-ri': 'zc',
   'Ma-la-chi': 'ml',
   // Tân Ước
@@ -44,30 +48,34 @@ export const BOOK_NAME_TO_ID = {
   'Mác': 'mk',
   'Lu-ca': 'lk',
   'Giăng': 'jo',
-  'Công-vụ': 'act',
+  'Công-vụ': 'act', 'Công Vụ Các Sứ Đồ': 'act',
   'Rô-ma': 'rm',
-  '1Cô-rinh-tô': '1co',
-  '2Cô-rinh-tô': '2co',
+  '1Cô-rinh-tô': '1co', '1 Cô-rinh-tô': '1co',
+  '2Cô-rinh-tô': '2co', '2 Cô-rinh-tô': '2co',
   'Ga-la-ti': 'gl',
   'Ê-phê-sô': 'eph',
   'Phi-líp': 'ph',
   'Cô-lô-se': 'cl',
-  '1Tê-sa-lô-ni-ca': '1ts',
-  '2Tê-sa-lô-ni-ca': '2ts',
-  '1Ti-mô-thê': '1tm',
-  '2Ti-mô-thê': '2tm',
+  '1Tê-sa-lô-ni-ca': '1ts', '1 Tê-sa-lô-ni-ca': '1ts',
+  '2Tê-sa-lô-ni-ca': '2ts', '2 Tê-sa-lô-ni-ca': '2ts',
+  '1Ti-mô-thê': '1tm', '1 Ti-mô-thê': '1tm',
+  '2Ti-mô-thê': '2tm', '2 Ti-mô-thê': '2tm',
   'Tít': 'tt',
   'Phi-lê-môn': 'phm',
   'Hê-bơ-rơ': 'hb',
   'Gia-cơ': 'jm',
-  '1Phi-e-rơ': '1pe',
-  '2Phi-e-rơ': '2pe',
-  '1Giăng': '1jo',
-  '2Giăng': '2jo',
-  '3Giăng': '3jo',
+  '1Phi-e-rơ': '1pe', '1 Phi-e-rơ': '1pe',
+  '2Phi-e-rơ': '2pe', '2 Phi-e-rơ': '2pe',
+  '1Giăng': '1jo', '1 Giăng': '1jo',
+  '2Giăng': '2jo', '2 Giăng': '2jo',
+  '3Giăng': '3jo', '3 Giăng': '3jo',
   'Giu-đe': 'jd',
   'Khải-huyền': 're',
 };
+
+export const BOOK_NAME_TO_ID = Object.fromEntries(
+  Object.entries(BOOK_NAME_TO_ID_RAW).map(([k, v]) => [normBookName(k), v])
+);
 
 export const BOOK_ID_TO_NAME = {
   gn: 'Sáng-thế-ký', ex: 'Xuất Ê-díp-tô', lv: 'Lê-vi', nm: 'Dân-số', dt: 'Phục-truyền',
@@ -104,12 +112,12 @@ export function parsePassage(passageStr) {
     const bookName = match[1].trim();
     const chFrom = parseInt(match[2], 10);
     const chTo = match[3] ? parseInt(match[3], 10) : chFrom;
-    const bookId = BOOK_NAME_TO_ID[bookName];
+    const bookId = BOOK_NAME_TO_ID[normBookName(bookName)];
     return bookId ? { bookId, bookName, chFrom, chTo } : null;
   }
 
   // No chapter — whole book (e.g. "Ru-tơ", "Giô-ên", "Áp-đia", "Giu-đe")
-  const bookId = BOOK_NAME_TO_ID[str];
+  const bookId = BOOK_NAME_TO_ID[normBookName(str)];
   if (bookId) return { bookId, bookName: str, chFrom: 1, chTo: 999 };
 
   return null;
