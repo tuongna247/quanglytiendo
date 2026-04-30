@@ -102,16 +102,8 @@ const BigCalendar = () => {
 
   const submitHandler = (e) => {
     e.preventDefault();
-    const newEvents = calevents;
-    newEvents.push({
-      title,
-      start,
-      end,
-      color,
-    });
+    setCalEvents([...calevents, { title, start, end, color }]);
     setOpen(false);
-    e.target.reset();
-    setCalEvents(newEvents);
     setTitle('');
     setStart(new Date());
     setEnd(new Date());
