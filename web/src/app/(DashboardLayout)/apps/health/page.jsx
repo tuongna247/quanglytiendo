@@ -86,7 +86,7 @@ export default function HealthPage() {
       if (e.status === 'fulfilled') setExercises(Array.isArray(e.value) ? e.value : []);
       if (g.status === 'fulfilled' && g.value) {
         setGoal(g.value);
-        setGoalForm({ targetWeight: g.value.targetWeight || '', height: g.value.height || '', targetCaloriesPerDay: g.value.targetCaloriesPerDay || '' });
+        setGoalForm({ targetWeight: g.value.targetWeightKg || '', height: g.value.heightCm || '', targetCaloriesPerDay: g.value.dailyCalorieTarget || '' });
       }
     } catch {}
   }
@@ -97,7 +97,11 @@ export default function HealthPage() {
     if (!weightForm.weight) return;
     setSavingWeight(true);
     try {
-      await apiClient.post('/api/health/weight', { ...weightForm, weight: parseFloat(weightForm.weight) });
+      await apiClient.post('/api/health/weight', {
+        date: weightForm.date,
+        weightKg: parseFloat(weightForm.weight),
+        notes: weightForm.note || null,
+      });
       setWeightForm({ weight: '', date: new Date().toISOString().split('T')[0], note: '' });
       const data = await apiClient.get('/api/health/weight');
       setWeights(Array.isArray(data) ? data : []);
@@ -109,7 +113,15 @@ export default function HealthPage() {
     if (!exForm.durationMinutes) return;
     setSavingEx(true);
     try {
-      await apiClient.post('/api/health/exercise', { ...exForm, durationMinutes: parseInt(exForm.durationMinutes), caloriesBurned: exForm.caloriesBurned ? parseInt(exForm.caloriesBurned) : null });
+      await apiClient.post('/api/health/exercise', {
+        date: exForm.date,
+        type: exForm.exerciseType,
+        name: exForm.exerciseType,
+        durationMinutes: parseInt(exForm.durationMinutes),
+        caloriesBurned: exForm.caloriesBurned ? parseInt(exForm.caloriesBurned) : null,
+        intensity: exForm.intensity,
+        notes: exForm.note || null,
+      });
       setExForm({ exerciseType: 'Chạy bộ', durationMinutes: '', caloriesBurned: '', date: new Date().toISOString().split('T')[0], intensity: 'moderate', note: '' });
       const data = await apiClient.get('/api/health/exercise');
       setExercises(Array.isArray(data) ? data : []);
@@ -120,7 +132,12 @@ export default function HealthPage() {
   async function saveGoal() {
     setSavingGoal(true);
     try {
-      await apiClient.post('/api/health/goal', { ...goalForm, targetWeight: parseFloat(goalForm.targetWeight), height: parseFloat(goalForm.height), targetCaloriesPerDay: goalForm.targetCaloriesPerDay ? parseInt(goalForm.targetCaloriesPerDay) : null });
+      await apiClient.post('/api/health/goal', {
+        startDate: new Date().toISOString().split('T')[0],
+        targetWeightKg: parseFloat(goalForm.targetWeight),
+        heightCm: parseFloat(goalForm.height),
+        dailyCalorieTarget: goalForm.targetCaloriesPerDay ? parseInt(goalForm.targetCaloriesPerDay) : null,
+      });
       await fetchAll();
     } catch (err) { console.error(err); }
     finally { setSavingGoal(false); }
@@ -135,13 +152,13 @@ export default function HealthPage() {
     finally { setSavingCheckin(false); }
   }
 
-  const latestWeight = weights.length > 0 ? weights[weights.length - 1]?.weight : null;
-  const bmi = calcBMI(latestWeight, goal?.height);
+  const latestWeight = weights.length > 0 ? weights[weights.length - 1]?.weightKg : null;
+  const bmi = calcBMI(latestWeight, goal?.heightCm);
   const bmiStatus = getBMIStatus(bmi);
 
   const weightChartData = weights.slice(-30);
   const chartDates = weightChartData.map(w => new Date(w.date).toLocaleDateString('vi-VN'));
-  const chartWeights = weightChartData.map(w => w.weight);
+  const chartWeights = weightChartData.map(w => Number(w.weightKg));
 
   return (
     <PageContainer title="Sức khỏe" description="Theo dõi sức khỏe">
@@ -197,8 +214,8 @@ export default function HealthPage() {
                     {[...weights].reverse().slice(0, 10).map((w, i) => (
                       <TableRow key={i} hover>
                         <TableCell>{new Date(w.date).toLocaleDateString('vi-VN')}</TableCell>
-                        <TableCell>{w.weight}</TableCell>
-                        <TableCell>{w.note || '-'}</TableCell>
+                        <TableCell>{w.weightKg}</TableCell>
+                        <TableCell>{w.notes || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -257,7 +274,7 @@ export default function HealthPage() {
                     {[...exercises].reverse().slice(0, 15).map((e, i) => (
                       <TableRow key={i} hover>
                         <TableCell>{new Date(e.date).toLocaleDateString('vi-VN')}</TableCell>
-                        <TableCell>{e.exerciseType}</TableCell>
+                        <TableCell>{e.type}</TableCell>
                         <TableCell>{e.durationMinutes} phút</TableCell>
                         <TableCell>{e.caloriesBurned || '-'}</TableCell>
                         <TableCell>{INTENSITY_OPTS.find(o => o.value === e.intensity)?.label || e.intensity}</TableCell>
@@ -300,7 +317,7 @@ export default function HealthPage() {
                       <Typography variant="h6" color={bmiStatus.color}>{bmiStatus.label}</Typography>
                     </Box>
                     <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                      Cân nặng hiện tại: {latestWeight} kg | Chiều cao: {goal?.height} cm
+                      Cân nặng hiện tại: {latestWeight} kg | Chiều cao: {goal?.heightCm} cm
                     </Typography>
                     <LinearProgress
                       variant="determinate"
@@ -312,14 +329,14 @@ export default function HealthPage() {
                       <Typography variant="caption">Bình thường 18.5-24.9</Typography>
                       <Typography variant="caption">Thừa cân &gt;25</Typography>
                     </Box>
-                    {goal?.targetWeight && (
+                    {goal?.targetWeightKg && (
                       <Box sx={{ mt: 2 }}>
                         <Typography variant="body2" sx={{ mb: 0.5 }}>
-                          Tiến độ đến mục tiêu ({goal.targetWeight} kg):
+                          Tiến độ đến mục tiêu ({goal.targetWeightKg} kg):
                         </Typography>
                         <LinearProgress
                           variant="determinate"
-                          value={Math.max(0, Math.min(100, 100 - Math.abs(latestWeight - goal.targetWeight) / goal.targetWeight * 100))}
+                          value={Math.max(0, Math.min(100, 100 - Math.abs(latestWeight - goal.targetWeightKg) / goal.targetWeightKg * 100))}
                           color="success"
                           sx={{ height: 8, borderRadius: 4 }}
                         />
