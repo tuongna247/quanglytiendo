@@ -21,7 +21,9 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
+import IconButton from '@mui/material/IconButton';
 import { LineChart } from '@mui/x-charts/LineChart';
+import { IconTrash } from '@tabler/icons-react';
 
 import PageContainer from '@/app/components/container/PageContainer';
 import apiClient from '@/app/lib/apiClient';
@@ -92,6 +94,14 @@ export default function HealthPage() {
   }
 
   useEffect(() => { fetchAll(); }, []);
+
+  async function deleteWeight(id) {
+    try {
+      await apiClient.delete(`/api/health/weight/${id}`);
+      const data = await apiClient.get('/api/health/weight');
+      setWeights(Array.isArray(data) ? data : []);
+    } catch (err) { console.error(err); }
+  }
 
   async function saveWeight() {
     if (!weightForm.weight) return;
@@ -208,6 +218,7 @@ export default function HealthPage() {
                       <TableCell>Ngày</TableCell>
                       <TableCell>Cân nặng (kg)</TableCell>
                       <TableCell>Ghi chú</TableCell>
+                      <TableCell />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -216,6 +227,11 @@ export default function HealthPage() {
                         <TableCell>{new Date(w.date).toLocaleDateString('vi-VN')}</TableCell>
                         <TableCell>{w.weightKg}</TableCell>
                         <TableCell>{w.notes || '-'}</TableCell>
+                        <TableCell sx={{ p: 0.5 }}>
+                          <IconButton size="small" color="error" onClick={() => deleteWeight(w.id)}>
+                            <IconTrash size={15} />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
