@@ -7,6 +7,9 @@ using QuanLyTienDo.API.Data;
 using QuanLyTienDo.API.Hubs;
 using QuanLyTienDo.API.Services;
 
+// Npgsql: treat all DateTime as UTC (avoids "Kind=Unspecified" errors with timestamp with time zone)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──────────────────────────────────────────────────────────────────
