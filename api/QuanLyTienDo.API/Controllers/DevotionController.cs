@@ -27,7 +27,7 @@ public class DevotionController : ControllerBase
         var devotion = await _db.DailyDevotions
             .FirstOrDefaultAsync(d => d.UserId == userId && d.Date == date);
 
-        if (devotion is null) return NotFound();
+        if (devotion is null) return Ok((object?)null);
 
         return Ok(MapDevotionToDto(devotion));
     }

@@ -27,7 +27,7 @@ public class JournalController : ControllerBase
         var note = await _db.DailyNotes
             .FirstOrDefaultAsync(n => n.UserId == userId && n.Date == date);
 
-        if (note is null) return NotFound();
+        if (note is null) return Ok((object?)null);
 
         return Ok(MapToDto(note));
     }
