@@ -25,15 +25,16 @@ public class CalendarEventsController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+        var fromUtc = from.HasValue ? DateTime.SpecifyKind(from.Value, DateTimeKind.Utc) : (DateTime?)null;
+        var toUtc = to.HasValue ? DateTime.SpecifyKind(to.Value, DateTimeKind.Utc) : (DateTime?)null;
+
         var query = _db.CalendarEvents.Where(e => e.UserId == userId);
 
-        if (from.HasValue)
-            // Include recurring events (they repeat, so don't filter by StartAt >= from)
-            query = query.Where(e => e.EndAt >= from.Value || e.Recurrence != "none");
+        if (fromUtc.HasValue)
+            query = query.Where(e => e.EndAt >= fromUtc.Value || e.Recurrence != "none");
 
-        if (to.HasValue)
-            // Non-recurring: StartAt must be within range. Recurring: always include (expand on frontend)
-            query = query.Where(e => e.StartAt <= to.Value || e.Recurrence != "none");
+        if (toUtc.HasValue)
+            query = query.Where(e => e.StartAt <= toUtc.Value || e.Recurrence != "none");
 
         var events = await query.OrderBy(e => e.StartAt).ToListAsync();
 
