@@ -21,7 +21,7 @@ public class BiblePlanConfigController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
         var config = await _db.UserBiblePlanConfigs.FirstOrDefaultAsync(x => x.UserId == userId);
-        if (config is null) return NotFound();
+        if (config is null) return Ok(new BiblePlanConfigDto());
         return Ok(MapToDto(config));
     }
 
