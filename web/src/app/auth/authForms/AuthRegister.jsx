@@ -16,6 +16,7 @@ import { useAuth } from '@/app/context/AuthContext';
 const AuthRegister = ({ title, subtitle, subtext }) => {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,13 +26,13 @@ const AuthRegister = ({ title, subtitle, subtext }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!username || !password || !displayName) {
+    if (!username || !password || !displayName || !email) {
       setError('Vui lòng điền đầy đủ thông tin');
       return;
     }
     setLoading(true);
     try {
-      await register(username, password, displayName);
+      await register(username, password, displayName, email);
       router.push('/');
     } catch (err) {
       setError(err.message || 'Đăng ký thất bại');
@@ -64,15 +65,6 @@ const AuthRegister = ({ title, subtitle, subtext }) => {
           <Alert severity="error" sx={{ mt: 2, mb: 1 }}>{error}</Alert>
         )}
         <Stack sx={{ mb: 3 }}>
-          <CustomFormLabel htmlFor="displayName">Tên hiển thị</CustomFormLabel>
-          <CustomTextField
-            id="displayName"
-            variant="outlined"
-            fullWidth
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            required
-          />
           <CustomFormLabel htmlFor="username">Tên đăng nhập</CustomFormLabel>
           <CustomTextField
             id="username"
@@ -82,6 +74,26 @@ const AuthRegister = ({ title, subtitle, subtext }) => {
             onChange={(e) => setUsername(e.target.value)}
             required
             autoComplete="username"
+          />
+          <CustomFormLabel htmlFor="displayName">Tên hiển thị</CustomFormLabel>
+          <CustomTextField
+            id="displayName"
+            variant="outlined"
+            fullWidth
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+          />
+          <CustomFormLabel htmlFor="email">Email</CustomFormLabel>
+          <CustomTextField
+            id="email"
+            type="email"
+            variant="outlined"
+            fullWidth
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
           />
           <CustomFormLabel htmlFor="password">Mật khẩu</CustomFormLabel>
           <CustomTextField

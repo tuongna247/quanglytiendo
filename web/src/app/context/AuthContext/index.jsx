@@ -45,11 +45,11 @@ export function AuthContextProvider({ children }) {
     return data;
   };
 
-  const register = async (username, password, displayName) => {
+  const register = async (username, password, displayName, email) => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, displayName }),
+      body: JSON.stringify({ username, password, displayName, email }),
     });
 
     if (!res.ok) {
