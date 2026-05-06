@@ -72,6 +72,39 @@ export const EXERCISE_DETAILS = {
       'Thở đều, không nín thở.',
     ],
   },
+  'Jumping Jack': {
+    type: 'reps',
+    muscleGroup: 'Toàn thân',
+    videoUrl: darebees('jumping jacks'),
+    tips: [
+      'Bật nhảy, dang chân rộng bằng vai, tay đưa lên cao.',
+      'Hạ tay và khép chân đồng thời khi bật xuống.',
+      'Giữ gối hơi chùng, không khóa khớp.',
+      'Thở đều, giữ nhịp ổn định suốt bài.',
+    ],
+  },
+  'Side Plank': {
+    type: 'duration',
+    muscleGroup: 'Bụng',
+    videoUrl: darebees('side plank'),
+    tips: [
+      'Nằm nghiêng, tựa trên một cẳng tay hoặc bàn tay.',
+      'Nhấc hông lên thẳng hàng từ vai đến mắt cá.',
+      'Siết cơ bụng, không để hông võng xuống.',
+      'Đổi bên sau mỗi set để tập đều hai bên.',
+    ],
+  },
+  'Leg Raise': {
+    type: 'reps',
+    muscleGroup: 'Bụng',
+    videoUrl: darebees('leg raise'),
+    tips: [
+      'Nằm ngửa, tay dọc thân hoặc dưới mông.',
+      'Giữ chân thẳng, nâng lên 90° rồi hạ chậm.',
+      'Không để chân chạm sàn hẳn giữa các rep.',
+      'Siết cơ bụng dưới, lưng áp sàn suốt bài.',
+    ],
+  },
   'Lunge': {
     type: 'reps',
     muscleGroup: 'Chân',
@@ -103,8 +136,9 @@ export const EXERCISE_LIBRARY = {
   'Tay trước': ['Barbell Curl', 'Dumbbell Curl', 'Hammer Curl', 'Preacher Curl'],
   'Tay sau': ['Tricep Pushdown', 'Skull Crusher', 'Overhead Extension', 'Close-Grip Press'],
   'Chân': ['Squat', 'Deadlift', 'Leg Press', 'Lunge', 'Leg Curl', 'Leg Extension', 'Calf Raise'],
-  'Bụng': ['Plank', 'Gập bụng', 'Leg Raise', 'Russian Twist', 'Mountain Climber'],
-  'Toàn thân': ['Burpee', 'Nhảy dây', 'HIIT', 'Circuit training'],
+  'Bụng': ['Plank', 'Side Plank', 'Gập bụng', 'Leg Raise', 'Russian Twist', 'Mountain Climber', 'Hollow Hold'],
+  'Toàn thân': ['Burpee', 'Nhảy dây', 'Jumping Jack', 'HIIT', 'Circuit training'],
+  'Tạ tay': ['Goblet Squat', 'DB Shoulder Press', 'DB Row', 'DB Bicep Curl', 'DB Tricep Extension', 'DB Lunge', 'DB Romanian Deadlift', 'DB Lateral Raise', 'DB Chest Press', 'DB Hammer Curl'],
 };
 
 export const ALL_EXERCISES = Object.entries(EXERCISE_LIBRARY).flatMap(
