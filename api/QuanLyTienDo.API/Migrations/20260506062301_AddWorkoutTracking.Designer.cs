@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuanLyTienDo.API.Data;
@@ -11,9 +12,11 @@ using QuanLyTienDo.API.Data;
 namespace QuanLyTienDo.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260506062301_AddWorkoutTracking")]
+    partial class AddWorkoutTracking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1245,56 +1248,6 @@ namespace QuanLyTienDo.API.Migrations
                     b.ToTable("UserShareSettings");
                 });
 
-            modelBuilder.Entity("QuanLyTienDo.API.Models.UserWorkoutPlan", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasDefaultValueSql("gen_random_uuid()");
-
-                    b.Property<string>("CompletedDaysJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<int>("DurationDays")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("PlanId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PlanName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("StartDate")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "Status");
-
-                    b.ToTable("UserWorkoutPlans");
-                });
-
             modelBuilder.Entity("QuanLyTienDo.API.Models.WeightLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1753,17 +1706,6 @@ namespace QuanLyTienDo.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("QuanLyTienDo.API.Models.UserWorkoutPlan", b =>
-                {
-                    b.HasOne("QuanLyTienDo.API.Models.User", "User")
-                        .WithMany("WorkoutPlans")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("QuanLyTienDo.API.Models.WeightLog", b =>
                 {
                     b.HasOne("QuanLyTienDo.API.Models.User", "User")
@@ -1862,8 +1804,6 @@ namespace QuanLyTienDo.API.Migrations
                     b.Navigation("Transactions");
 
                     b.Navigation("WeightLogs");
-
-                    b.Navigation("WorkoutPlans");
 
                     b.Navigation("WorkoutSessions");
                 });

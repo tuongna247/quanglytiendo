@@ -36,6 +36,10 @@ public class AppDbContext : DbContext
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<BibleVerseHighlight> BibleVerseHighlights => Set<BibleVerseHighlight>();
     public DbSet<BibleStudySession> BibleStudySessions => Set<BibleStudySession>();
+    public DbSet<WorkoutSession> WorkoutSessions => Set<WorkoutSession>();
+    public DbSet<WorkoutExercise> WorkoutExercises => Set<WorkoutExercise>();
+    public DbSet<WorkoutSet> WorkoutSets => Set<WorkoutSet>();
+    public DbSet<UserWorkoutPlan> UserWorkoutPlans => Set<UserWorkoutPlan>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -411,6 +415,55 @@ public class AppDbContext : DbContext
             e.HasIndex(x => new { x.UserId, x.BookId, x.Chapter });
             e.HasOne(x => x.User)
              .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── WorkoutSession / Exercise / Set ─────────────────────────────────────
+        modelBuilder.Entity<WorkoutSession>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne(x => x.User)
+             .WithMany(u => u.WorkoutSessions)
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkoutExercise>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.HasOne(x => x.Session)
+             .WithMany(s => s.Exercises)
+             .HasForeignKey(x => x.SessionId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkoutSet>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.WeightKg).HasColumnType("decimal(6,2)");
+            e.HasOne(x => x.Exercise)
+             .WithMany(ex => ex.Sets)
+             .HasForeignKey(x => x.ExerciseId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── UserWorkoutPlan ──────────────────────────────────────────────────────
+        modelBuilder.Entity<UserWorkoutPlan>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.Property(x => x.CompletedDaysJson).HasColumnType("text");
+            e.HasIndex(x => new { x.UserId, x.Status });
+            e.HasOne(x => x.User)
+             .WithMany(u => u.WorkoutPlans)
              .HasForeignKey(x => x.UserId)
              .OnDelete(DeleteBehavior.Cascade);
         });
