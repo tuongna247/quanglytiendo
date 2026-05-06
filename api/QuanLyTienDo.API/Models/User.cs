@@ -27,4 +27,6 @@ public class User
     public ICollection<MemorizePassage> MemorizePassages { get; set; } = new List<MemorizePassage>();
     public ICollection<FixedExpense> FixedExpenses { get; set; } = new List<FixedExpense>();
     public ICollection<EbookBook> EbookBooks { get; set; } = new List<EbookBook>();
+    public ICollection<WorkoutSession> WorkoutSessions { get; set; } = new List<WorkoutSession>();
+    public ICollection<UserWorkoutPlan> WorkoutPlans { get; set; } = new List<UserWorkoutPlan>();
 }
