@@ -12,10 +12,15 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
-COPY --from=build /app/publish ./
+# Non-root user (uid/gid 1001, matches web container convention)
+RUN groupadd -g 1001 dotnet && useradd -u 1001 -g dotnet -s /sbin/nologin -M dotnet
+
+COPY --from=build --chown=dotnet:dotnet /app/publish ./
 
 ENV ASPNETCORE_URLS=http://+:5015
 ENV ASPNETCORE_ENVIRONMENT=Production
+
+USER dotnet
 
 EXPOSE 5015
 ENTRYPOINT ["dotnet", "QuanLyTienDo.API.dll"]
