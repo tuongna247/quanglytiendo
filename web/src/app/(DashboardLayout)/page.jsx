@@ -102,7 +102,7 @@ export default function Dashboard() {
         {/* Greeting */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            Xin chào, {user?.displayName || user?.username || 'bạn'}!
+            Hello, {user?.displayName || user?.username || 'bạn'}!
           </Typography>
           <Typography variant="body1" color="textSecondary" sx={{ mt: 0.5 }}>
             {formatViDate(today)}
