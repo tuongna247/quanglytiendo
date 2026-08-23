@@ -68,6 +68,7 @@
     "react-spring": "^9.7.3",
     "react-syntax-highlighter": "^15.5.0",
     "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
     "remark-html": "^16.0.1",
     "sharp": "^0.32.6",
     "simplebar-react": "^3.2.4",

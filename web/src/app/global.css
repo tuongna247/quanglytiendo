@@ -1,1 +1,66 @@
 html { overflow-y: scroll; }
+
+/* ─── Bible Notes semantic markup ─────────────────────────────────────── */
+/* Sync với web/content/bible-notes/SPEC.md và Word template */
+
+.kt-loi-hua { background-color: #fef08a; padding: 0 2px; border-radius: 2px; }
+.kt-danh-xung { color: #1e3a8a; font-weight: 600; }
+.kt-menh-lenh { color: #15803d; font-weight: 700; }
+.kt-canh-bao { color: #b91c1c; }
+.kt-tien-tri { color: #7e22ce; }
+.kt-boi-canh { color: #52525b; font-style: italic; }
+.kt-lap-lai { background-color: #fef9c3; padding: 0 2px; }
+.kt-tuong-phan { color: #b91c1c; font-weight: 700; }
+.kt-nhan-qua { color: #ea580c; font-weight: 600; }
+.kt-tu-goc { font-style: italic; font-family: 'SBL BibLit', 'Cambria', serif; }
+.kt-index { border-bottom: 1px dotted #94a3b8; }
+
+.kt-callout {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+.kt-callout > p:first-child { margin-top: 0; }
+.kt-callout > p:last-child { margin-bottom: 0; }
+
+.kt-callout-ghi-chu, .kt-callout-chu-thich { background: #f1f5f9; border-color: #64748b; }
+.kt-callout-boi-canh-box { background: #fef3c7; border-color: #d97706; }
+.kt-callout-tu-goc-box { background: #ede9fe; border-color: #7c3aed; font-family: 'Cambria', serif; }
+.kt-callout-ung-dung { background: #dcfce7; border-color: #16a34a; }
+.kt-callout-cau-hoi { background: #dbeafe; border-color: #2563eb; }
+.kt-callout-can-tra-cuu { background: #fee2e2; border-color: #dc2626; }
+.kt-callout-gom { background: transparent; border-color: #cbd5e1; border-left-width: 2px; }
+
+.bible-note-body {
+  max-width: 72ch;
+  line-height: 1.75;
+  font-family: 'Cambria', 'Georgia', serif;
+}
+.bible-note-body h1 { font-size: 1.75em; margin: 1.5rem 0 0.75rem; font-weight: 700; }
+.bible-note-body h2 { font-size: 1.4em; margin: 1.5rem 0 0.5rem; font-weight: 700; color: #1e293b; }
+.bible-note-body h3 { font-size: 1.2em; margin: 1rem 0 0.5rem; font-weight: 600; }
+.bible-note-body p { margin: 0.6rem 0; }
+.bible-note-body sup { font-size: 0.7em; vertical-align: super; }
+.bible-note-body blockquote {
+  margin-left: 1.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid #cbd5e1;
+  color: #334155;
+}
+.bible-note-body blockquote blockquote {
+  margin-left: 1rem;
+  border-left-color: #94a3b8;
+}
+.bible-note-body table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9em;
+}
+.bible-note-body th, .bible-note-body td {
+  border: 1px solid #cbd5e1;
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+}
+.bible-note-body th { background: #f1f5f9; font-weight: 600; }

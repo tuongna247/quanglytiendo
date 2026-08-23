@@ -90,6 +90,12 @@ const Menuitems = [
   },
   {
     id: uniqueId(),
+    title: 'Ghi chú KT (Notes)',
+    icon: IconSearch,
+    href: '/apps/bible-notes',
+  },
+  {
+    id: uniqueId(),
     title: 'Học Thuộc Lòng',
     icon: IconBook,
     href: '/apps/memorize',

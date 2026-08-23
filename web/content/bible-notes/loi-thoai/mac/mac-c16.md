@@ -1,0 +1,17 @@
+thân mời các bạn cùng nghe chương trình tương tác thánh kinh của NTC dấu yêu mát chương 16 chương cuối cùng của Phúc Âm mát là bài ca khải hoàng về sự Phục Sinh Vinh Hiển Của Chúa Giêsu điiểm nổi bật trong chương này là ơn thương xót mà Chúa Giêsu dành cho những người đi theo ngài trong đó có cả những người đã lìa bỏ và chối từ chúa trong phần đầu tiên từ câu một đến câu tám tường thuật lại sự Phục Sinh Của
+
+Chúa Giêsu mở đầu câu chuyện này là sự tức bậc của ba người phụ nữ chuẩn bị hương liệu để xuất xác Chúa Giêsu Kinh Thánh mô tả khi mặt trời Vừa mọc ba người đã đến mộ chúa trong khi còn băng khoăn không biết sẽ xử lý hòn đá chắn trước cửa mộ như thế nào thì họ thấy hòn đá đã được lăn ra rồi khi bước vào bên trong mộ thì họ được thiên sứ báo tin rằng Chúa Giêsu đã sống lại sự Phục Sinh Của Chúa Giêsu là một trong những phần trọng tâm của sứ điệp
+
+phúc âm thiên sứ cũng bảo họ đi báo cho các môn đồ về tin tức này tại đây chúng ta thấy ông ph được nhắc đến cách đặc biệt điều này cho thấy chúa quan tâm đến ông phần tiếp theo của chương kể về cuộc gặp gỡ giữa Chúa Giêsu với bà mar MD sau khi ngài đã sống lại ông mát cho biết bà mar là người đã từng được chúa giải phóng khỏi bảy Quỷ Dữ Và từ đó Bà đã đi theo ngài trong kỹ thuật của Phúc Âm mát Bà Mari là một trong số ít những người nữ Trung Thành đi theo chúa Giêsu trong
+
+lúc những người khác lìa Bỏ Ngài khi ngài bị đóng đinh sau khi gặp Chúa Giêsu bà Mari đã đem tin tức vui mừng này báo cho những người đang đau buồn vì cái chết của chúa nhưng đáng buồn thay sự vô Tín và cứng lòng đã khiến họ không tin lời bà [âm nhạc] câu chuyện tiếp theo là sự tường thuật ngắn gọn về cuộc gặp gỡ của chúa Giêsu với hai môn đồ ở làng em ma Úc ông mát tập trung nhấn mạnh việc chúa đã hiện ra
+
+với hai người và sau đó họ đã đem tin vui này để thông báo cho các môn đồ thế Nhưng một lần nữa các môn đồ lại khước từ tin tức vui mừng này sau đó chú giêu đã hiện ra giữa các môn đồ khi họ đang ăn ngài quở trách họ về sự vô Tín và sự cứng lòng dưới sự mô tả của ông mát những môn đồ là đối tượng cứng lòng đến phút cuối cùng dù đã được nhiều người báo tin về sự Phục Sinh Của Chúa Giêsu nhưng họ vẫn khép lòng mình lại sự kiện tiếp theo trong phần này là
+
+chúa Giêsu trao ban cho các môn đồ một mạng lệnh và một lời hứa ngài muốn các môn đồ tiếp tục công tác giao truyền phúc âm trên đất và ngài sẽ trao ban cho bất cứ ai tin Nơi Ngài quyền năng đuổi được của chữa lành bệnh tật nói được những ngôn ngữ mới hai câu cuối cùng của Phúc Âm mát nói về sự thăng thiên Vinh Hiển Của Chúa Giêsu đồng thời khẳng định vị trí của ngài trên trời ấy là ngồi bên phải Đức Chúa Trời sự kỹ thuật này như lời kết
+
+lại cho hành trình thương khó đầy đau thương của người đầy tớ chịu khổ và dẫu khi người đầy tớ ấy đã hoàn thành sứ mạng của Chúa Cha giao cho mình trên đất thì ngài vẫn tiếp tục đồng công trong công tác truyền giảng với những người đang thi hành Sứ Mạng Ngài ban [âm nhạc] truyền câu hỏi suy ngẫm sứ mạng chú truyền cho bạn là gì cánh đồng của bạn ở đâu Bạn có đang thi hành mạng lệnh giao truyền phúc âm trong cánh đồng mà chúa
+
+đặt để [âm nhạc] bạn [âm nhạc] chúng ta cùng cầu nguyện lạy Cứu Chúa yêu dấu của con chúa đã hy sinh mạng sống của ngài để cho chúng con được chữa lành Chúa sống lại để ban cho chúng con niềm hy vọng nơi đấng sống Xin Cho Con dạn dĩ bày tỏ một cứu chúa phục sinh sống động qua cuộc đời của mình xin giao phó đời sống của con trong tay ngài
+
+chúng con cầu nguyện trong danh chúa Giêsu Amen Thân ái chào các bạn Hẹn gặp lại vào ngày [âm nhạc] mai [âm nhạc]
