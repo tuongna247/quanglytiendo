@@ -34,7 +34,22 @@
       "Bash(node tools/bible-scrape-httlvn.mjs NIV)",
       "Bash(node tools/bible-scrape-httlvn.mjs NVB)",
       "Bash(grep -n '\">\"\\\\\\\\|IconChevron\\\\\\\\|>.*<\\\\\\\\|&gt;' \"D:/Projects/GitLap/App_QuanLy_TienDo/web/src/app/\\(DashboardLayout\\)/apps/bible-study/page.jsx\")",
-      "Bash(node --input-type=module)"
+      "Bash(node --input-type=module)",
+      "Bash(ssh -i C\\:/Users/tuong/.ssh/id_rsa_tour_260218 -p 2222 root@75.119.131.225:*)",
+      "Bash(ssh -i C\\:/Users/tuong/.ssh/id_mmm -p 2222 root@75.119.131.225:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:\\Projects\\GitLab\\App_QuanLy_TienDo\\.claude\\hooks\\log-attribution.sh"
+          }
+        ]
+      }
     ]
   }
 }

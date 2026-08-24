@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+  <ribbon>
+    <tabs>
+      <tab id="tabKinhThanh" label="Kinh Thánh" insertBeforeMso="TabHome">
+
+        <!-- ============ TÔ NGHĨA (Character Styles) ============ -->
+        <group id="grpHighlight" label="Tô nghĩa">
+          <button id="btnLoiHua"    label="Lời hứa"     size="normal"
+                  imageMso="HighlightColorPicker" onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-LoiHua (Ctrl+Shift+L)" />
+          <button id="btnDanhXung"  label="Danh xưng"   size="normal"
+                  imageMso="FontColorPicker"      onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-DanhXung (Ctrl+Shift+D)" />
+          <button id="btnMenhLenh"  label="Mệnh lệnh"   size="normal"
+                  imageMso="Bold"                 onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-MenhLenh (Ctrl+Shift+M)" />
+          <button id="btnCanhBao"   label="Cảnh báo"    size="normal"
+                  imageMso="RedoOrRepeat"         onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-CanhBao (Ctrl+Shift+C)" />
+          <button id="btnTienTri"   label="Tiên tri"    size="normal"
+                  imageMso="Italic"               onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-TienTri (Ctrl+Shift+Y)" />
+          <button id="btnBoiCanh"   label="Bối cảnh"    size="normal"
+                  imageMso="EditNote"             onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-BoiCanh (Ctrl+Shift+O)" />
+          <button id="btnLapLai"    label="Lặp lại"     size="normal"
+                  imageMso="TextHighlightColorPicker" onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-LapLai (Ctrl+Shift+E)" />
+          <button id="btnTuongPhan" label="Tương phản"  size="normal"
+                  imageMso="StrikeThrough"        onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-TuongPhan (Ctrl+Shift+P)" />
+          <button id="btnNhanQua"   label="Nhân quả"    size="normal"
+                  imageMso="ArrowRight"           onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-NhanQua (Ctrl+Shift+N)" />
+          <button id="btnTuGoc"     label="Từ gốc"      size="normal"
+                  imageMso="Language"             onAction="RibbonHighlight"
+                  screentip="Áp dụng Style KT-TuGoc (Ctrl+Shift+K)" />
+          <button id="btnClear"     label="Xóa tô"      size="normal"
+                  imageMso="RemoveHyperlink"      onAction="RibbonHighlight"
+                  screentip="Xóa Character Style (Ctrl+Shift+0)" />
+        </group>
+
+        <!-- ============ HỘP GHI CHÚ (Paragraph Styles) ============ -->
+        <group id="grpBox" label="Hộp ghi chú">
+          <button id="btnGhiChu"     label="Ghi chú"     size="normal"
+                  imageMso="NewComment"           onAction="RibbonBox"
+                  screentip="Chèn hộp Ghi chú (Ctrl+Alt+Shift+G)" />
+          <button id="btnBoiCanhBox" label="Bối cảnh"    size="normal"
+                  imageMso="TextBoxInsert"        onAction="RibbonBox"
+                  screentip="Chèn hộp Bối cảnh (Ctrl+Alt+Shift+B)" />
+          <button id="btnTuGocBox"   label="Từ gốc"      size="normal"
+                  imageMso="ReferenceFootnoteInsert" onAction="RibbonBox"
+                  screentip="Chèn hộp Từ gốc (Ctrl+Alt+Shift+T)" />
+          <button id="btnUngDung"    label="Ứng dụng"    size="normal"
+                  imageMso="AcceptInvitation"     onAction="RibbonBox"
+                  screentip="Chèn hộp Ứng dụng (Ctrl+Alt+Shift+U)" />
+          <button id="btnCauHoi"     label="Câu hỏi"     size="normal"
+                  imageMso="QuestionMark"         onAction="RibbonBox"
+                  screentip="Chèn hộp Câu hỏi (Ctrl+Alt+Shift+H)" />
+          <button id="btnCanTraCuu"  label="Cần tra cứu" size="normal"
+                  imageMso="FlagRed"              onAction="RibbonBox"
+                  screentip="Chèn hộp Cần tra cứu (Ctrl+Alt+Shift+R)" />
+        </group>
+
+        <!-- ============ KINH THÁNH ============ -->
+        <group id="grpBible" label="Kinh Thánh">
+          <button id="btnChenCau"  label="Chèn câu"     size="large"
+                  imageMso="ContentControlText"   onAction="RibbonBible"
+                  screentip="Nhập tham chiếu (Mac 1:1-8) để chèn văn bản KT" />
+          <button id="btnSongSong" label="Song song"    size="large"
+                  imageMso="TableInsertDialogWord"  onAction="RibbonBible"
+                  screentip="Chèn bảng phần song song (Mat|Mac|Lu|Gi)" />
+          <button id="btnCheckRef" label="Kiểm tra"     size="large"
+                  imageMso="ProofingToolsDialog"    onAction="RibbonBible"
+                  screentip="Kiểm tra các [[tham chiếu]] trong tài liệu" />
+        </group>
+
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

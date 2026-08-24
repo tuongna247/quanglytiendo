@@ -13,6 +13,8 @@ import JournalPage from '@/pages/JournalPage'
 import DevotionPage from '@/pages/DevotionPage'
 import SettingsPage from '@/pages/SettingsPage'
 import EbookPage from '@/pages/EbookPage'
+import BibleStudyPage from '@/pages/BibleStudyPage'
+import BibleStudyDetailPage from '@/pages/BibleStudyDetailPage'
 import ResetPasswordPage from '@/pages/ResetPasswordPage'
 
 function LoginRoute() {
@@ -39,6 +41,8 @@ export default function AppRouter() {
             <Route path="devotion" element={<DevotionPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="ebook" element={<EbookPage />} />
+            <Route path="bible-study" element={<BibleStudyPage />} />
+            <Route path="bible-study/:slug" element={<BibleStudyDetailPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

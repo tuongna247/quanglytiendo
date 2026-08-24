@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard, Calendar, CheckSquare, Wallet,
-  ClipboardList, Heart, BookOpen, BookMarked, Settings, BookText,
+  ClipboardList, Heart, BookOpen, BookMarked, Settings, BookText, ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/journal', icon: BookOpen, labelKey: 'nav.journal' },
   { to: '/devotion', icon: BookMarked, labelKey: 'nav.devotion' },
   { to: '/ebook', icon: BookText, labelKey: 'nav.ebook' },
+  { to: '/bible-study', icon: ScrollText, labelKey: 'nav.bibleStudy' },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ]
 
