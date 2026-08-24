@@ -54,7 +54,7 @@ export default function BibleNotesPage() {
           </Typography>
           <Grid container spacing={2}>
             {items.map(note => (
-              <Grid item xs={12} sm={6} lg={4} key={note.slug}>
+              <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={note.slug}>
                 <Card
                   component={Link}
                   href={`/apps/bible-notes/${note.slug}`}
