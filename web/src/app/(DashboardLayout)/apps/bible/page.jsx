@@ -39,6 +39,7 @@ import apiClient from '@/app/lib/apiClient';
 import { BOOK_ID_TO_NAME, BOOK_NAME_TO_ID, parsePassage } from '@/app/lib/bibleUtils';
 import { BIBLE_READING_PLAN, DAY_LABELS, DAYS } from '@/app/lib/bibleReadingPlan';
 import { useAuth } from '@/app/context/AuthContext';
+import { InlineBibleText } from '@/app/components/BibleInlineReader';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const BOOK_ORDER = [
@@ -1555,6 +1556,22 @@ function ReadingPlanTab({ activePlan, planConfig, planConfigLoaded, savePlanConf
   const week = activePlan[weekIdx] || activePlan[Math.min(weekIdx, activePlan.length - 1)];
   if (!week) return null;
 
+  // Locate today's passage across all weeks so it's shown even when browsing other weeks
+  const todayPassageInfo = (() => {
+    for (const w of activePlan) {
+      for (let i = 0; i < DAY_KEYS.length; i++) {
+        const d = new Date(w.startDate + 'T00:00:00');
+        d.setDate(d.getDate() + i);
+        if (toLocalDateStr(d) === todayStr) {
+          const passage = w[DAY_KEYS[i]];
+          if (passage) return { passage, dateStr: todayStr };
+          return null;
+        }
+      }
+    }
+    return null;
+  })();
+
   const weekDates = DAY_KEYS.map((_, idx) => getDateForDay(week.startDate, idx));
   const weekDoneCount = weekDates.filter(d => completed[d]).length;
   const totalDone = Object.keys(completed).length;
@@ -1623,6 +1640,21 @@ function ReadingPlanTab({ activePlan, planConfig, planConfigLoaded, savePlanConf
           </Button>
         )}
       </Box>
+
+      {/* Today's inline reader — read plan without leaving this tab */}
+      {todayPassageInfo && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'primary.main', mb: 0.5, display: 'block' }}>
+            Đọc nhanh — hôm nay
+          </Typography>
+          <InlineBibleText
+            passage={todayPassageInfo.passage}
+            dateStr={todayPassageInfo.dateStr}
+            completed={completed}
+            toggle={onToggleCompleted}
+          />
+        </Box>
+      )}
 
       {/* 7 day cards */}
       <Grid container spacing={1.5}>
