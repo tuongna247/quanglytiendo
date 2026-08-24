@@ -14,6 +14,12 @@ const STATUS_COLOR = {
   'da-day': 'info',
 }
 
+function formatDate(v) {
+  if (!v) return ''
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  return String(v)
+}
+
 export async function generateStaticParams() {
   return listAllSlugs().map(slug => ({ slug }))
 }
@@ -65,7 +71,7 @@ export default async function BibleNoteDetailPage({ params }) {
             </span>
           )}
           {fm.ban_dich && <span>Bản dịch: {fm.ban_dich}</span>}
-          {fm.ngay_soan && <span>Soạn: {fm.ngay_soan}</span>}
+          {fm.ngay_soan && <span>Soạn: {formatDate(fm.ngay_soan)}</span>}
           {fm.trang_thai && (
             <Chip
               label={fm.trang_thai}
